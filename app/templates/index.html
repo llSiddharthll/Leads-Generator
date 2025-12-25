@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Business Finder - Discover Local Businesses</title>
+  <meta name="description" content="Find businesses by niche, location, and radius">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    /* Custom styles for better UX */
+    .fade-in {
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .shake {
+      animation: shake 0.5s ease-in-out;
+    }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+      20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    /* Smooth transitions */
+    .transition-all {
+      transition: all 0.2s ease;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+
+  <!-- Main Content -->
+  <main class="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Search Card -->
+    <div class="bg-white rounded-xl shadow-lg p-6 mb-8 fade-in">
+      <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-2">Find Businesses</h2>
+        <p class="text-gray-600">Enter search criteria to discover businesses in your desired area</p>
+      </div>
+
+      <!-- Search Form -->
+      <form id="searchForm" class="space-y-4 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-4 md:items-center">
+        <div class="space-y-2">
+          <label for="niche" class="block text-sm font-medium text-gray-700">
+            <i class="fas fa-store mr-1"></i> Business Type
+          </label>
+          <div class="relative">
+            <input
+              id="niche"
+              type="text"
+              placeholder="e.g., restaurant, cafe, hotel"
+              class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              required
+            />
+            <i class="fas fa-utensils absolute left-3 top-3.5 text-gray-400"></i>
+          </div>
+          <p class="text-xs text-gray-500">Enter the type of business you're looking for</p>
+        </div>
+
+        <div class="space-y-2">
+          <label for="location" class="block text-sm font-medium text-gray-700">
+            <i class="fas fa-map-marker-alt mr-1"></i> Location
+          </label>
+          <div class="relative">
+            <input
+              id="location"
+              type="text"
+              placeholder="e.g., Mumbai, Delhi, Bangalore"
+              class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              required
+            />
+            <i class="fas fa-map-pin absolute left-3 top-3.5 text-gray-400"></i>
+          </div>
+          <p class="text-xs text-gray-500">City or area name</p>
+        </div>
+
+        <div class="space-y-2">
+          <label for="radius" class="block text-sm font-medium text-gray-700">
+            <i class="fas fa-expand-alt mr-1"></i> Search Radius
+          </label>
+          <div class="relative">
+            <input
+              id="radius"
+              type="number"
+              min="1"
+              max="50"
+              value="5"
+              placeholder="Radius in km"
+              class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+              required
+            />
+            <i class="fas fa-ruler-combined absolute left-3 top-3.5 text-gray-400"></i>
+          </div>
+          <p class="text-xs text-gray-500">Distance from location (1-50 km)</p>
+        </div>
+
+        <div class="flex items-end">
+          <button
+            type="submit"
+            id="searchBtn"
+            class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 flex items-center justify-center"
+          >
+            <i class="fas fa-search mr-2"></i>
+            <span>Search Businesses</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- Quick Suggestions -->
+      <div class="mt-6 pt-6 border-t border-gray-200">
+        <p class="text-sm font-medium text-gray-700 mb-3">Quick searches:</p>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="quick-search-btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all" data-niche="restaurant" data-location="Mumbai">🍽️ Restaurants in Mumbai</button>
+          <button type="button" class="quick-search-btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all" data-niche="cafe" data-location="Delhi">☕ Cafes in Delhi</button>
+          <button type="button" class="quick-search-btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all" data-niche="hotel" data-location="Bangalore">🏨 Hotels in Bangalore</button>
+          <button type="button" class="quick-search-btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all" data-niche="pharmacy" data-location="Pune">💊 Pharmacy in Pune</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader" class="hidden flex flex-col items-center justify-center py-12 fade-in">
+      <div class="relative">
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-blue-200"></div>
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent absolute top-0 left-0"></div>
+      </div>
+      <p class="mt-4 text-lg font-medium text-gray-700">Searching for businesses...</p>
+      <p class="mt-2 text-gray-500">This may take a few moments</p>
+    </div>
+
+    <!-- Error Message -->
+    <div id="errorMessage" class="hidden bg-red-50 border border-red-200 rounded-xl p-6 mb-8 fade-in">
+      <div class="flex">
+        <i class="fas fa-exclamation-triangle text-red-500 text-xl mt-1 mr-3"></i>
+        <div>
+          <h3 class="font-medium text-red-800">Search Failed</h3>
+          <p id="errorText" class="text-red-600 mt-1">Unable to fetch business data. Please try again.</p>
+          <button id="retryBtn" class="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium transition-all">
+            <i class="fas fa-redo mr-1"></i> Retry Search
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Section -->
+    <div id="resultsSection" class="hidden fade-in">
+      <!-- Results Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
+        <div>
+          <h2 class="text-2xl font-bold text-gray-900">Search Results</h2>
+          <p id="resultsCount" class="text-gray-600 mt-1"></p>
+        </div>
+        <div class="mt-4 sm:mt-0 flex items-center space-x-4">
+          <div class="flex items-center">
+            <span class="text-gray-700 text-sm mr-2">Results per page:</span>
+            <select id="pageSizeSelect" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+          <button id="exportBtn" class="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-all hidden">
+            <i class="fas fa-download mr-1"></i> Export CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- Results Table -->
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Business Name</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Category</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Contact</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Website</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Location</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="bg-white divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- No Results -->
+      <div id="noResults" class="hidden text-center py-12">
+        <i class="fas fa-search text-gray-300 text-5xl mb-4"></i>
+        <h3 class="text-xl font-medium text-gray-700">No businesses found</h3>
+        <p class="text-gray-500 mt-2">Try adjusting your search criteria</p>
+      </div>
+
+      <!-- Pagination -->
+      <div id="pagination" class="hidden mt-8 flex flex-col sm:flex-row items-center justify-between">
+        <div class="mb-4 sm:mb-0">
+          <p id="pageInfo" class="text-gray-700"></p>
+        </div>
+        <div class="flex space-x-2">
+          <button
+            id="firstBtn"
+            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            disabled
+          >
+            <i class="fas fa-angle-double-left"></i>
+          </button>
+          <button
+            id="prevBtn"
+            class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            disabled
+          >
+            <i class="fas fa-chevron-left mr-1"></i> Previous
+          </button>
+          <div class="flex items-center px-4">
+            <span id="currentPage" class="font-medium text-blue-600">1</span>
+            <span class="mx-1 text-gray-500">of</span>
+            <span id="totalPages" class="font-medium text-gray-700">1</span>
+          </div>
+          <button
+            id="nextBtn"
+            class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            disabled
+          >
+            Next <i class="fas fa-chevron-right ml-1"></i>
+          </button>
+          <button
+            id="lastBtn"
+            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            disabled
+          >
+            <i class="fas fa-angle-double-right"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API_URL = "http://127.0.0.1:8000/find-businesses";
+    
+    let businessData = [];
+    let currentPage = 1;
+    let pageSize = 10;
+    let totalPages = 1;
+
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize all DOM elements
+      const elements = {
+        searchForm: document.getElementById('searchForm'),
+        loader: document.getElementById('loader'),
+        resultsSection: document.getElementById('resultsSection'),
+        pagination: document.getElementById('pagination'),
+        tableBody: document.getElementById('tableBody'),
+        noResults: document.getElementById('noResults'),
+        errorMessage: document.getElementById('errorMessage'),
+        errorText: document.getElementById('errorText'),
+        searchBtn: document.getElementById('searchBtn'),
+        retryBtn: document.getElementById('retryBtn'),
+        exportBtn: document.getElementById('exportBtn'),
+        totalBusinesses: document.getElementById('totalBusinesses'),
+        pageSizeSelect: document.getElementById('pageSizeSelect'),
+        resultsCount: document.getElementById('resultsCount'),
+        currentPage: document.getElementById('currentPage'),
+        totalPages: document.getElementById('totalPages'),
+        pageInfo: document.getElementById('pageInfo')
+      };
+
+      // Check if all required elements exist
+      const missingElements = [];
+      for (const [key, element] of Object.entries(elements)) {
+        if (!element) {
+          missingElements.push(key);
+          console.warn(`Element with ID not found: ${key}`);
+        }
+      }
+      
+      if (missingElements.length > 0) {
+        console.error('Missing elements:', missingElements);
+      }
+
+      // Initialize with some data
+      if (elements.totalBusinesses) {
+        elements.totalBusinesses.textContent = '12,543';
+      }
+
+      // Quick search buttons
+      document.querySelectorAll('.quick-search-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const niche = btn.getAttribute('data-niche');
+          const location = btn.getAttribute('data-location');
+          
+          document.getElementById('niche').value = niche;
+          document.getElementById('location').value = location;
+          document.getElementById('radius').value = 5;
+          
+          // Trigger search
+          elements.searchForm.dispatchEvent(new Event('submit', { cancelable: true }));
+        });
+      });
+
+      // Page size change
+      if (elements.pageSizeSelect) {
+        elements.pageSizeSelect.addEventListener('change', (e) => {
+          pageSize = parseInt(e.target.value);
+          currentPage = 1;
+          if (businessData.length > 0) {
+            renderTable();
+            updatePagination();
+          }
+        });
+      }
+
+      // Search form submission
+      if (elements.searchForm) {
+        elements.searchForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          
+          const niche = document.getElementById('niche').value.trim();
+          const location = document.getElementById('location').value.trim();
+          const radius = document.getElementById('radius').value;
+          
+          // Input validation
+          if (!niche || !location || !radius) {
+            showError('Please fill in all fields');
+            return;
+          }
+          
+          if (radius < 1 || radius > 50) {
+            showError('Please enter a radius between 1 and 50 km');
+            return;
+          }
+          
+          // Update button state
+          if (elements.searchBtn) {
+            elements.searchBtn.disabled = true;
+            elements.searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Searching...';
+          }
+          
+          // Show loader, hide previous results/errors
+          showLoader();
+          hideResults();
+          hideError();
+          
+          currentPage = 1;
+          
+          try {
+            const response = await fetch(
+              `${API_URL}?niche=${encodeURIComponent(niche)}&location=${encodeURIComponent(location)}&radius_km=${radius}`,
+              {
+                method: 'GET',
+                headers: {
+                  'Accept': 'application/json',
+                  'Cache-Control': 'no-cache'
+                }
+              }
+            );
+
+            if (!response.ok) {
+              throw new Error(`API error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            businessData = result.businesses || [];
+            
+            hideLoader();
+            
+            if (businessData.length > 0) {
+              showResults();
+              renderTable();
+              updatePagination();
+              updateResultsCount();
+              if (elements.exportBtn) {
+                elements.exportBtn.classList.remove('hidden');
+              }
+            } else {
+              showNoResults();
+            }
+            
+            // Update total businesses count (mock - you would get this from API)
+            if (elements.totalBusinesses) {
+              elements.totalBusinesses.textContent = (Math.floor(Math.random() * 10000) + 5000).toLocaleString();
+            }
+            
+          } catch (err) {
+            console.error('Search error:', err);
+            hideLoader();
+            showError(err.message || 'Failed to fetch data. Please check your connection and try again.');
+          } finally {
+            if (elements.searchBtn) {
+              elements.searchBtn.disabled = false;
+              elements.searchBtn.innerHTML = '<i class="fas fa-search mr-2"></i><span>Search Businesses</span>';
+            }
+          }
+        });
+      }
+
+      // Retry button
+      if (elements.retryBtn) {
+        elements.retryBtn.addEventListener('click', () => {
+          if (elements.searchForm) {
+            elements.searchForm.dispatchEvent(new Event('submit', { cancelable: true }));
+          }
+        });
+      }
+
+      // Pagination handlers
+      const firstBtn = document.getElementById('firstBtn');
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      const lastBtn = document.getElementById('lastBtn');
+
+      if (firstBtn) firstBtn.onclick = () => {
+        currentPage = 1;
+        renderTable();
+        updatePagination();
+      };
+
+      if (prevBtn) prevBtn.onclick = () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderTable();
+          updatePagination();
+        }
+      };
+
+      if (nextBtn) nextBtn.onclick = () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          renderTable();
+          updatePagination();
+        }
+      };
+
+      if (lastBtn) lastBtn.onclick = () => {
+        currentPage = totalPages;
+        renderTable();
+        updatePagination();
+      };
+
+      // Export to CSV
+      if (elements.exportBtn) {
+        elements.exportBtn.addEventListener('click', () => {
+          if (businessData.length === 0) return;
+          
+          const headers = ['Name', 'Category', 'Phone', 'Website', 'City'];
+          const csvContent = [
+            headers.join(','),
+            ...businessData.map(b => [
+              `"${(b.name || '').replace(/"/g, '""')}"`,
+              `"${(b.category || '').replace(/"/g, '""')}"`,
+              b.contact?.phone || '',
+              b.contact?.website || '',
+              b.address?.city || ''
+            ].join(','))
+          ].join('\n');
+          
+          const blob = new Blob([csvContent], { type: 'text/csv' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `businesses_${new Date().toISOString().split('T')[0]}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+        });
+      }
+
+      // UI Functions
+      function showLoader() {
+        if (elements.loader) elements.loader.classList.remove('hidden');
+      }
+
+      function hideLoader() {
+        if (elements.loader) elements.loader.classList.add('hidden');
+      }
+
+      function showResults() {
+        if (elements.resultsSection) elements.resultsSection.classList.remove('hidden');
+        if (elements.noResults) elements.noResults.classList.add('hidden');
+      }
+
+      function hideResults() {
+        if (elements.resultsSection) elements.resultsSection.classList.add('hidden');
+        if (elements.pagination) elements.pagination.classList.add('hidden');
+        if (elements.noResults) elements.noResults.classList.add('hidden');
+      }
+
+      function showNoResults() {
+        if (elements.resultsSection) elements.resultsSection.classList.remove('hidden');
+        if (elements.tableBody) elements.tableBody.innerHTML = '';
+        if (elements.noResults) elements.noResults.classList.remove('hidden');
+        if (elements.pagination) elements.pagination.classList.add('hidden');
+        if (elements.exportBtn) elements.exportBtn.classList.add('hidden');
+      }
+
+      function showError(message) {
+        if (elements.errorText) elements.errorText.textContent = message;
+        if (elements.errorMessage) {
+          elements.errorMessage.classList.remove('hidden');
+          elements.errorMessage.classList.add('shake');
+          setTimeout(() => elements.errorMessage.classList.remove('shake'), 500);
+        }
+      }
+
+      function hideError() {
+        if (elements.errorMessage) elements.errorMessage.classList.add('hidden');
+      }
+
+      function renderTable() {
+        if (!elements.tableBody) return;
+        
+        elements.tableBody.innerHTML = '';
+        
+        const start = (currentPage - 1) * pageSize;
+        const end = Math.min(start + pageSize, businessData.length);
+        
+        for (let i = start; i < end; i++) {
+          const business = businessData[i];
+          const row = document.createElement('tr');
+          row.className = 'hover:bg-gray-50 transition-colors';
+          
+          // Format phone number
+          let phoneDisplay = '-';
+          if (business.contact?.phone) {
+            const phone = business.contact.phone.replace(/\D/g, '');
+            phoneDisplay = phone.length === 10 ? 
+              `(${phone.substring(0,3)}) ${phone.substring(3,6)}-${phone.substring(6)}` : 
+              business.contact.phone;
+          }
+          
+          // Truncate long names
+          const businessName = business.name || '-';
+          const displayName = businessName.length > 30 ? 
+            businessName.substring(0, 30) + '...' : businessName;
+          
+          row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm font-medium text-gray-900" title="${businessName}">
+                ${displayName}
+                ${business.rating ? `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <i class="fas fa-star text-yellow-500 mr-1 text-xs"></i>${business.rating}
+                </span>` : ''}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900">${business.category || '-'}</div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900">
+                ${business.contact?.phone ? 
+                  `<a href="tel:${business.contact.phone}" class="text-blue-600 hover:text-blue-800 transition-colors">
+                    <i class="fas fa-phone-alt mr-1"></i>${phoneDisplay}
+                  </a>` : 
+                  '-'}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm">
+                ${business.contact?.website ? 
+                  `<a href="${business.contact.website}" target="_blank" rel="noopener noreferrer" 
+                    class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors">
+                    <i class="fas fa-external-link-alt mr-1"></i>Visit
+                  </a>` : 
+                  '-'}
+              </div>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <div class="text-sm text-gray-900">
+                ${business.address?.city || '-'}
+                ${business.address?.street ? `<div class="text-xs text-gray-500">${business.address.street}</div>` : ''}
+              </div>
+            </td>
+          `;
+          
+          elements.tableBody.appendChild(row);
+        }
+      }
+
+      function updatePagination() {
+        totalPages = Math.ceil(businessData.length / pageSize);
+        
+        if (businessData.length > pageSize) {
+          if (elements.pagination) elements.pagination.classList.remove('hidden');
+          
+          if (elements.currentPage) elements.currentPage.textContent = currentPage;
+          if (elements.totalPages) elements.totalPages.textContent = totalPages;
+          
+          // Update button states
+          if (firstBtn) firstBtn.disabled = currentPage === 1;
+          if (prevBtn) prevBtn.disabled = currentPage === 1;
+          if (nextBtn) nextBtn.disabled = currentPage === totalPages;
+          if (lastBtn) lastBtn.disabled = currentPage === totalPages;
+          
+          // Update page info
+          if (elements.pageInfo) {
+            const start = Math.min((currentPage - 1) * pageSize + 1, businessData.length);
+            const end = Math.min(currentPage * pageSize, businessData.length);
+            elements.pageInfo.textContent = `Showing ${start} to ${end} of ${businessData.length} businesses`;
+          }
+        } else {
+          if (elements.pagination) elements.pagination.classList.add('hidden');
+          if (elements.pageInfo && businessData.length > 0) {
+            elements.pageInfo.textContent = `Showing all ${businessData.length} businesses`;
+          }
+        }
+      }
+
+      function updateResultsCount() {
+        if (!elements.resultsCount) return;
+        const count = businessData.length;
+        elements.resultsCount.textContent = count === 1 ? 
+          '1 business found' : 
+          `${count.toLocaleString()} businesses found`;
+      }
+    });
+  </script>
+</body>
+</html>
