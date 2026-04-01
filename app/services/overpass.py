@@ -305,9 +305,10 @@ def get_businesses(lat: float, lon: float, radius_km: float, niche: str) -> List
     niche_clean = str(niche).strip().lower()
     radius_m = int(radius_km * 1000)
 
-    # Strategy 1: Tag-based search
+    raw: List[Business] = []
+
+    # Strategy 1: Tag-based search (fast, specific)
     tags = NICHE_TAGS.get(niche_clean, [])
-    # If no pre-defined mapping, try to guess common tags
     if not tags:
         tags = [
             ("amenity", niche_clean), ("shop", niche_clean),
@@ -317,29 +318,25 @@ def get_businesses(lat: float, lon: float, radius_km: float, niche: str) -> List
         ]
 
     tag_query_lines = _build_tag_query(tags, radius_m, lat, lon)
-
-    # Strategy 2: Name-based search
-    name_keywords = NICHE_NAME_KEYWORDS.get(niche_clean, [niche_clean])
-    name_query_lines = _build_name_query(name_keywords, radius_m, lat, lon)
-
-    # Combined query - both strategies in one request
-    query = f"""
-    [out:json][timeout:90];
-    (
-      // Tag-based search
-      {tag_query_lines}
-      // Name-based search
-      {name_query_lines}
-    );
-    out center tags;
-    """
-
-    data = make_request(query)
-    raw: List[Business] = []
+    tag_query = f"""[out:json][timeout:60];({tag_query_lines});out center tags;"""
+    data = make_request(tag_query)
     for elem in data.get("elements", []):
         b = _parse_element(elem, niche_clean)
         if b:
             raw.append(b)
+
+    # Strategy 2: Name-based search (broader, slower)
+    # Use smaller radius for name search to keep it fast, or skip if tag search found plenty
+    name_keywords = NICHE_NAME_KEYWORDS.get(niche_clean, [niche_clean])
+    name_radius = min(radius_m, 20000)  # Cap name search at 20km to avoid Overpass timeout
+    if len(raw) < 50:  # Only do name search if tag search found fewer than 50
+        name_query_lines = _build_name_query(name_keywords, name_radius, lat, lon)
+        name_query = f"""[out:json][timeout:45];({name_query_lines});out center tags;"""
+        data2 = make_request(name_query)
+        for elem in data2.get("elements", []):
+            b = _parse_element(elem, niche_clean)
+            if b:
+                raw.append(b)
 
     unique = deduplicate(raw)
     unique.sort(key=lambda x: (
