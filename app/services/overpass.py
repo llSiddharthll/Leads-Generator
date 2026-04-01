@@ -2,18 +2,117 @@ import requests
 import hashlib
 import time
 import re
-from typing import List, Dict, Optional, Set, Tuple
-from dataclasses import dataclass, asdict
+from typing import List, Dict, Optional, Set
+from dataclasses import dataclass
 from urllib.parse import urlparse
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
-REQUEST_TIMEOUT = 30  # seconds
-MAX_RETRIES = 3
+REQUEST_TIMEOUT = 45
+MAX_RETRIES = 2
+
+# Comprehensive niche → OSM tag mapping
+# Each niche maps to a list of (tag_key, tag_value) pairs to search
+NICHE_TAGS = {
+    "restaurant": [("amenity", "restaurant"), ("amenity", "food_court"), ("amenity", "fast_food")],
+    "cafe": [("amenity", "cafe"), ("amenity", "coffee_shop"), ("cuisine", "coffee")],
+    "hotel": [("tourism", "hotel"), ("tourism", "motel"), ("tourism", "guest_house"), ("tourism", "hostel")],
+    "salon": [("shop", "beauty"), ("shop", "hairdresser"), ("amenity", "beauty"), ("shop", "cosmetics")],
+    "beauty": [("shop", "beauty"), ("shop", "hairdresser"), ("amenity", "beauty"), ("shop", "cosmetics"), ("shop", "nail")],
+    "spa": [("amenity", "spa"), ("leisure", "spa"), ("shop", "beauty"), ("shop", "massage")],
+    "gym": [("leisure", "fitness_centre"), ("leisure", "sports_centre"), ("sport", "fitness"), ("sport", "gym"), ("amenity", "gym"), ("shop", "sports")],
+    "fitness": [("leisure", "fitness_centre"), ("leisure", "sports_centre"), ("sport", "fitness"), ("sport", "gym")],
+    "clinic": [("amenity", "clinic"), ("amenity", "doctors"), ("healthcare", "clinic"), ("healthcare", "doctor")],
+    "hospital": [("amenity", "hospital"), ("healthcare", "hospital"), ("amenity", "clinic")],
+    "dentist": [("amenity", "dentist"), ("healthcare", "dentist")],
+    "dental": [("amenity", "dentist"), ("healthcare", "dentist")],
+    "pharmacy": [("amenity", "pharmacy"), ("shop", "chemist"), ("healthcare", "pharmacy")],
+    "school": [("amenity", "school"), ("amenity", "college"), ("amenity", "training"), ("office", "educational_institution")],
+    "coaching": [("amenity", "school"), ("amenity", "training"), ("amenity", "college"), ("office", "educational_institution")],
+    "university": [("amenity", "university"), ("amenity", "college")],
+    "real_estate": [("office", "estate_agent"), ("office", "property"), ("shop", "estate_agent")],
+    "car": [("shop", "car"), ("shop", "car_repair"), ("shop", "car_parts"), ("amenity", "car_rental"), ("shop", "motorcycle")],
+    "auto": [("shop", "car"), ("shop", "car_repair"), ("shop", "car_parts"), ("amenity", "car_rental")],
+    "clothes": [("shop", "clothes"), ("shop", "fashion"), ("shop", "boutique"), ("shop", "shoes")],
+    "boutique": [("shop", "clothes"), ("shop", "fashion"), ("shop", "boutique")],
+    "pet": [("shop", "pet"), ("shop", "pet_grooming"), ("amenity", "veterinary")],
+    "photography": [("shop", "photo"), ("craft", "photographer"), ("office", "photographer")],
+    "supermarket": [("shop", "supermarket"), ("shop", "convenience"), ("shop", "general"), ("shop", "grocery")],
+    "grocery": [("shop", "supermarket"), ("shop", "convenience"), ("shop", "grocery"), ("shop", "greengrocer")],
+    "bank": [("amenity", "bank")],
+    "atm": [("amenity", "atm")],
+    "bakery": [("shop", "bakery"), ("amenity", "bakery")],
+    "electronics": [("shop", "electronics"), ("shop", "computer"), ("shop", "mobile_phone")],
+    "mobile": [("shop", "mobile_phone"), ("shop", "electronics")],
+    "jewelry": [("shop", "jewelry"), ("shop", "jewellery")],
+    "jewellery": [("shop", "jewelry"), ("shop", "jewellery")],
+    "furniture": [("shop", "furniture"), ("shop", "interior_decoration")],
+    "hardware": [("shop", "hardware"), ("shop", "doityourself")],
+    "laundry": [("shop", "laundry"), ("shop", "dry_cleaning"), ("amenity", "laundry")],
+    "bar": [("amenity", "bar"), ("amenity", "pub"), ("amenity", "nightclub")],
+    "pub": [("amenity", "pub"), ("amenity", "bar")],
+    "wedding": [("shop", "wedding"), ("amenity", "wedding"), ("office", "wedding_planner")],
+    "travel": [("shop", "travel_agency"), ("office", "travel_agent")],
+    "insurance": [("office", "insurance")],
+    "lawyer": [("office", "lawyer"), ("office", "legal")],
+    "accountant": [("office", "accountant"), ("office", "tax_advisor")],
+    "architect": [("office", "architect")],
+    "yoga": [("leisure", "fitness_centre"), ("sport", "yoga"), ("amenity", "yoga")],
+    "swimming": [("leisure", "swimming_pool"), ("sport", "swimming")],
+    "sports": [("leisure", "sports_centre"), ("shop", "sports"), ("leisure", "pitch")],
+    "temple": [("amenity", "place_of_worship")],
+    "church": [("amenity", "place_of_worship")],
+    "mosque": [("amenity", "place_of_worship")],
+    "hospital": [("amenity", "hospital"), ("healthcare", "hospital")],
+    "optical": [("shop", "optician"), ("healthcare", "optometrist")],
+    "florist": [("shop", "florist")],
+    "stationery": [("shop", "stationery")],
+    "books": [("shop", "books")],
+    "toys": [("shop", "toys")],
+    "tattoo": [("shop", "tattoo")],
+}
+
+# Name keywords to search in business names (broader catch)
+NICHE_NAME_KEYWORDS = {
+    "gym": ["gym", "fitness", "workout", "crossfit", "bodybuilding", "muscle"],
+    "fitness": ["fitness", "gym", "workout", "crossfit", "yoga"],
+    "salon": ["salon", "beauty", "parlour", "parlor", "hair", "makeover", "unisex"],
+    "beauty": ["beauty", "salon", "parlour", "parlor", "makeover", "cosmetic"],
+    "spa": ["spa", "massage", "wellness", "ayurved"],
+    "restaurant": ["restaurant", "dhaba", "kitchen", "bistro", "diner", "eatery", "bhojanalaya"],
+    "cafe": ["cafe", "coffee", "chai", "tea", "bakery", "patisserie"],
+    "hotel": ["hotel", "resort", "lodge", "inn", "guest house", "homestay", "oyo"],
+    "clinic": ["clinic", "hospital", "medical", "health", "diagnostic", "path lab", "polyclinic"],
+    "dentist": ["dental", "dentist", "tooth", "orthodon"],
+    "dental": ["dental", "dentist", "tooth", "orthodon"],
+    "coaching": ["coaching", "academy", "institute", "classes", "tuition", "tutorial", "education"],
+    "school": ["school", "academy", "institute", "vidyalaya", "public school"],
+    "real_estate": ["real estate", "property", "realty", "builders", "developers", "housing"],
+    "car": ["car", "auto", "motors", "automobile", "vehicle", "garage", "service center"],
+    "photography": ["photo", "studio", "photography", "photographer", "camera"],
+    "boutique": ["boutique", "fashion", "designer", "clothing", "garment"],
+    "clothes": ["clothing", "fashion", "garment", "apparel", "wear", "boutique"],
+    "pet": ["pet", "veterinary", "vet", "animal", "dog", "cat"],
+    "wedding": ["wedding", "shaadi", "marriage", "event", "banquet"],
+    "yoga": ["yoga", "meditation", "pilates", "wellness"],
+    "bakery": ["bakery", "bake", "cake", "pastry", "confectioner"],
+    "jewelry": ["jewel", "gold", "diamond", "ornament"],
+    "jewellery": ["jewel", "gold", "diamond", "ornament"],
+    "electronics": ["electronics", "computer", "laptop", "mobile", "gadget"],
+    "mobile": ["mobile", "phone", "smartphone", "telecom"],
+    "pharmacy": ["pharmacy", "chemist", "medical", "drug"],
+    "supermarket": ["supermarket", "grocery", "mart", "kirana", "general store", "departmental"],
+    "grocery": ["grocery", "kirana", "supermarket", "mart", "general store"],
+    "travel": ["travel", "tour", "tourism", "holidays"],
+    "bar": ["bar", "lounge", "pub", "brewery", "nightclub"],
+    "laundry": ["laundry", "dry clean", "wash", "ironing"],
+    "furniture": ["furniture", "sofa", "interior", "decor"],
+    "hardware": ["hardware", "tools", "plumb", "electric"],
+    "optical": ["optical", "optician", "eye", "lens", "spectacle"],
+}
 
 
 @dataclass
 class Business:
-    """Data class for business information"""
     name: Optional[str] = None
     category: Optional[str] = None
     brand: Optional[str] = None
@@ -23,459 +122,245 @@ class Business:
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     source_id: Optional[str] = None
-    
+    rating: Optional[str] = None
+
     def get_hash_id(self) -> str:
-        """Generate a unique hash for the business based on key attributes"""
-        # Create a string from key identifiers
         key_parts = [
             str(self.name).lower().strip() if self.name else "",
             str(self.category).lower().strip() if self.category else "",
-            str(self.brand).lower().strip() if self.brand else "",
         ]
-        
-        # Add address components if available
         if self.address:
-            street = self.address.get('street', '')
-            city = self.address.get('city', '')
-            postcode = self.address.get('postcode', '')
-            
-            key_parts.extend([
-                str(street).lower().strip() if street else "",
-                str(city).lower().strip() if city else "",
-                str(postcode).lower().strip() if postcode else ""
-            ])
-        
-        key_string = "|".join(key_parts)
-        return hashlib.md5(key_string.encode()).hexdigest()
-    
+            key_parts.append(str(self.address.get('street', '')).lower().strip())
+            key_parts.append(str(self.address.get('city', '')).lower().strip())
+        if self.latitude and self.longitude:
+            key_parts.append(f"{round(self.latitude, 4)},{round(self.longitude, 4)}")
+        return hashlib.md5("|".join(key_parts).encode()).hexdigest()
+
     def is_valid(self) -> bool:
-        """Check if business has minimal required data"""
-        # At minimum, we need a name or brand
         if not self.name and not self.brand:
             return False
-        
-        # Check if it's just a generic/placeholder name
-        generic_names = {
-            'unknown', 'none', 'null', '', 'na', 'n/a', '未命名', '無名',
-            'restaurant', 'cafe', 'shop', 'store', 'business', 'company'
-        }
-        
+        generic = {'unknown', 'none', 'null', '', 'na', 'n/a', 'yes', 'no'}
         name_lower = (self.name or '').lower().strip()
-        if name_lower in generic_names or len(name_lower) <= 2:
+        if name_lower in generic or len(name_lower) <= 2:
             return False
-            
         return True
 
 
 def normalize_phone(phone: Optional[str]) -> Optional[str]:
-    """Normalize phone number format"""
     if not phone:
         return None
-    
-    try:
-        # Remove all non-digit characters except +
-        cleaned = ''.join(c for c in str(phone) if c.isdigit() or c == '+')
-        
-        # If it starts with 00, replace with +
-        if cleaned.startswith('00'):
-            cleaned = '+' + cleaned[2:]
-        
-        # Add country code if missing (assuming India +91 for example)
-        # You might want to make this configurable based on location
-        if cleaned and len(cleaned) == 10:
-            cleaned = '+91' + cleaned
-        
-        return cleaned if cleaned else None
-    except Exception:
-        return None
+    cleaned = ''.join(c for c in str(phone) if c.isdigit() or c == '+')
+    if cleaned.startswith('00'):
+        cleaned = '+' + cleaned[2:]
+    if cleaned and len(cleaned) == 10 and not cleaned.startswith('+'):
+        cleaned = '+91' + cleaned
+    return cleaned if cleaned and len(cleaned) >= 10 else None
 
 
 def normalize_website(website: Optional[str]) -> Optional[str]:
-    """Normalize website URL"""
     if not website:
         return None
-    
-    try:
-        website = str(website).strip()
-        
-        # Skip if it's clearly not a URL
-        if len(website) < 4 or ' ' in website:
-            return None
-        
-        # Add http:// if no protocol specified
-        if not website.startswith(('http://', 'https://')):
-            website = 'https://' + website
-        
-        # Validate URL
-        result = urlparse(website)
-        if all([result.scheme, result.netloc]):
-            return website.lower()
-    except Exception:
-        pass
-    
+    website = str(website).strip()
+    if len(website) < 4 or ' ' in website:
+        return None
+    if not website.startswith(('http://', 'https://')):
+        website = 'https://' + website
+    result = urlparse(website)
+    if all([result.scheme, result.netloc]):
+        return website
     return None
 
 
-def clean_business_name(name: Optional[str]) -> Optional[str]:
-    """Clean business name from common issues"""
+def clean_name(name: Optional[str]) -> Optional[str]:
     if not name:
         return None
-    
-    try:
-        # Remove extra whitespace
-        name = ' '.join(str(name).strip().split())
-        
-        if not name:
-            return None
-        
-        # Remove common suffixes in parentheses/brackets
-        name = re.sub(r'\s*\([^)]*\)\s*$', '', name)  # Remove trailing (text)
-        name = re.sub(r'\s*\[[^\]]*\]\s*$', '', name)  # Remove trailing [text]
-        
-        # Remove quotation marks
-        name = name.replace('"', '').replace("'", "").strip()
-        
-        return name if name else None
-    except Exception:
+    name = ' '.join(str(name).strip().split())
+    if not name:
         return None
+    name = re.sub(r'\s*\([^)]*\)\s*$', '', name)
+    name = re.sub(r'\s*\[[^\]]*\]\s*$', '', name)
+    return name.strip() or None
 
 
-def get_address_string(business: Business) -> str:
-    """Get normalized address string for deduplication"""
-    if not business.address:
-        return ""
-    
-    street = business.address.get('street', '')
-    city = business.address.get('city', '')
-    
-    # Safely convert to string and normalize
-    street_str = str(street).lower().strip() if street else ""
-    city_str = str(city).lower().strip() if city else ""
-    
-    return f"{street_str}|{city_str}"
-
-
-def deduplicate_businesses(businesses: List[Business]) -> List[Business]:
-    """Remove duplicate businesses based on multiple criteria"""
+def deduplicate(businesses: List[Business]) -> List[Business]:
     seen_hashes: Set[str] = set()
-    seen_combinations: Set[str] = set()
-    unique_businesses: List[Business] = []
-    
-    for business in businesses:
-        if not business.is_valid():
+    seen_names: Set[str] = set()
+    unique: List[Business] = []
+    for b in businesses:
+        if not b.is_valid():
             continue
-        
-        # Method 1: Use hash ID
-        business_hash = business.get_hash_id()
-        if business_hash in seen_hashes:
+        h = b.get_hash_id()
+        if h in seen_hashes:
             continue
-        
-        # Method 2: Check name + address combination
-        name_key = (business.name or '').lower().strip()
-        address_key = get_address_string(business)
-        
-        combination_key = f"{name_key}|{address_key}"
-        if combination_key in seen_combinations and address_key:
+        name_key = (b.name or '').lower().strip()
+        addr_key = ''
+        if b.address:
+            addr_key = f"{b.address.get('street','')}|{b.address.get('city','')}".lower()
+        combo = f"{name_key}|{addr_key}"
+        if combo in seen_names and addr_key:
             continue
-        
-        # Method 3: Check for very similar names (fuzzy match)
-        is_duplicate = False
-        for existing in unique_businesses:
-            existing_name = (existing.name or '').lower()
-            current_name = (business.name or '').lower()
-            
-            if existing_name and current_name:
-                # Skip if names are exactly the same
-                if existing_name == current_name:
-                    # Keep the one with more complete data
-                    existing_data_score = sum(1 for v in [
-                        existing.name, existing.contact, existing.address
-                    ] if v)
-                    current_data_score = sum(1 for v in [
-                        business.name, business.contact, business.address
-                    ] if v)
-                    
-                    if current_data_score <= existing_data_score:
-                        is_duplicate = True
-                        break
-        
-        if is_duplicate:
-            continue
-        
-        seen_hashes.add(business_hash)
-        seen_combinations.add(combination_key)
-        unique_businesses.append(business)
-    
-    return unique_businesses
+        seen_hashes.add(h)
+        seen_names.add(combo)
+        unique.append(b)
+    return unique
 
 
-def make_overpass_request(query: str, retry_count: int = 0) -> Dict:
-    """Make request to Overpass API with retry logic"""
+def make_request(query: str, retry: int = 0) -> Dict:
     try:
-        response = requests.post(
-            OVERPASS_URL,
-            data=query,
-            timeout=REQUEST_TIMEOUT,
-            headers={
-                'User-Agent': 'BusinessFinder/1.0',
-                'Accept': 'application/json'
-            }
-        )
-        response.raise_for_status()
-        return response.json()
-        
+        resp = requests.post(OVERPASS_URL, data=query, timeout=REQUEST_TIMEOUT,
+                             headers={'User-Agent': 'CreativeMonkLeadEngine/2.0'})
+        resp.raise_for_status()
+        return resp.json()
     except requests.exceptions.Timeout:
-        if retry_count < MAX_RETRIES:
-            time.sleep(2 ** retry_count)  # Exponential backoff
-            return make_overpass_request(query, retry_count + 1)
-        raise Exception("Overpass API timeout after multiple retries")
-        
-    except requests.exceptions.HTTPError as e:
-        if retry_count < MAX_RETRIES:
-            wait_time = 30 * (retry_count + 1)
-            print(f"HTTP error {e.response.status_code}. Waiting {wait_time} seconds...")
-            time.sleep(wait_time)
-            return make_overpass_request(query, retry_count + 1)
-        raise Exception(f"Overpass API error: {e}")
-        
-    except requests.exceptions.RequestException as e:
-        if retry_count < MAX_RETRIES:
-            time.sleep(2)
-            return make_overpass_request(query, retry_count + 1)
-        raise Exception(f"Failed to connect to Overpass API: {e}")
+        if retry < MAX_RETRIES:
+            time.sleep(2 ** retry)
+            return make_request(query, retry + 1)
+        return {"elements": []}
+    except requests.exceptions.HTTPError:
+        if retry < MAX_RETRIES:
+            time.sleep(10 * (retry + 1))
+            return make_request(query, retry + 1)
+        return {"elements": []}
+    except Exception:
+        return {"elements": []}
+
+
+def _build_tag_query(tags: list, radius_m: int, lat: float, lon: float) -> str:
+    """Build Overpass query lines for a list of (key, value) tag pairs."""
+    lines = []
+    for key, val in tags:
+        for elem in ["node", "way", "relation"]:
+            lines.append(f'{elem}["{key}"="{val}"](around:{radius_m},{lat},{lon});')
+    return "\n      ".join(lines)
+
+
+def _build_name_query(keywords: list, radius_m: int, lat: float, lon: float) -> str:
+    """Build Overpass query that searches for keywords in business names."""
+    # Build regex: keyword1|keyword2|keyword3
+    regex = "|".join(re.escape(k) for k in keywords)
+    lines = []
+    for elem in ["node", "way", "relation"]:
+        lines.append(f'{elem}["name"~"{regex}", i](around:{radius_m},{lat},{lon});')
+    return "\n      ".join(lines)
+
+
+def _parse_element(element: dict, niche: str) -> Optional[Business]:
+    """Parse a single OSM element into a Business object."""
+    tags = element.get("tags", {})
+
+    if not tags.get("name") and not tags.get("brand") and not tags.get("operator"):
+        has_info = any(tags.get(k) for k in ["contact:phone", "phone", "contact:website", "website", "addr:street"])
+        if not has_info:
+            return None
+
+    raw_name = tags.get("name") or tags.get("brand") or tags.get("operator")
+    name = clean_name(raw_name)
+
+    category = (tags.get("amenity") or tags.get("shop") or tags.get("leisure")
+                or tags.get("tourism") or tags.get("healthcare") or tags.get("office")
+                or tags.get("craft") or tags.get("sport") or niche)
+
+    phone = normalize_phone(tags.get("contact:phone") or tags.get("phone"))
+    website = normalize_website(tags.get("contact:website") or tags.get("website"))
+    email = tags.get("contact:email") or tags.get("email")
+    facebook = tags.get("contact:facebook")
+    instagram = tags.get("contact:instagram")
+
+    contact = {}
+    if phone: contact["phone"] = phone
+    if website: contact["website"] = website
+    if email: contact["email"] = email
+    if facebook: contact["facebook"] = facebook
+    if instagram: contact["instagram"] = instagram
+
+    address = {}
+    if tags.get("addr:street"): address["street"] = tags["addr:street"]
+    city = tags.get("addr:city") or tags.get("addr:suburb") or tags.get("addr:town")
+    if city: address["city"] = city
+    if tags.get("addr:postcode"): address["postcode"] = tags["addr:postcode"]
+    if tags.get("addr:full"): address["full"] = tags["addr:full"]
+
+    lat_c = element.get("lat") or element.get("center", {}).get("lat")
+    lon_c = element.get("lon") or element.get("center", {}).get("lon")
+
+    return Business(
+        name=name,
+        category=category,
+        brand=clean_name(tags.get("brand")),
+        contact=contact if contact else None,
+        opening_hours=tags.get("opening_hours"),
+        address=address if address else None,
+        latitude=float(lat_c) if lat_c else None,
+        longitude=float(lon_c) if lon_c else None,
+        source_id=f"{element['type']}_{element.get('id', '')}",
+    )
 
 
 def get_businesses(lat: float, lon: float, radius_km: float, niche: str) -> List[Dict]:
-    """
-    Fetch businesses from OpenStreetMap with deduplication and data cleaning
-    
-    Args:
-        lat: Latitude of search center
-        lon: Longitude of search center
-        radius_km: Search radius in kilometers
-        niche: Business type/category
-    
-    Returns:
-        List of deduplicated and cleaned business dictionaries
-    """
-    # Input validation
-    try:
-        lat = float(lat)
-        lon = float(lon)
-        radius_km = float(radius_km)
-    except (ValueError, TypeError):
-        raise ValueError("Invalid coordinates or radius")
-    
-    if not niche or not str(niche).strip():
-        raise ValueError("Niche parameter is required")
-    
+    """Fetch businesses with tag-based + name-based search and deduplication."""
+    lat, lon, radius_km = float(lat), float(lon), float(radius_km)
     if radius_km <= 0 or radius_km > 50:
         raise ValueError("Radius must be between 0.1 and 50 km")
-    
-    # Clean and prepare niche parameter
-    niche = str(niche).strip().lower()
-    
-    # Map common business types to OSM amenities
-    niche_mapping = {
-        'restaurant': 'restaurant',
-        'cafe': 'cafe',
-        'coffee': 'cafe',
-        'coffee shop': 'cafe',
-        'hotel': 'hotel',
-        'motel': 'motel',
-        'pharmacy': 'pharmacy',
-        'drugstore': 'pharmacy',
-        'hospital': 'hospital',
-        'clinic': 'clinic',
-        'bank': 'bank',
-        'atm': 'atm',
-        'supermarket': 'supermarket',
-        'grocery': 'supermarket',
-        'mall': 'mall',
-        'shopping': 'shop',
-        'store': 'shop',
-        'gas': 'fuel',
-        'gas station': 'fuel',
-        'petrol': 'fuel',
-        'petrol pump': 'fuel',
-        'school': 'school',
-        'university': 'university',
-        'college': 'college'
-    }
-    
-    # Use mapping if available, otherwise use the input as-is
-    amenity_filter = niche_mapping.get(niche, niche)
-    
-    radius_meters = int(radius_km * 1000)
-    
-    # More comprehensive query that includes alternative tags
+
+    niche_clean = str(niche).strip().lower()
+    radius_m = int(radius_km * 1000)
+
+    # Strategy 1: Tag-based search
+    tags = NICHE_TAGS.get(niche_clean, [])
+    # If no pre-defined mapping, try to guess common tags
+    if not tags:
+        tags = [
+            ("amenity", niche_clean), ("shop", niche_clean),
+            ("leisure", niche_clean), ("tourism", niche_clean),
+            ("healthcare", niche_clean), ("office", niche_clean),
+            ("craft", niche_clean), ("sport", niche_clean),
+        ]
+
+    tag_query_lines = _build_tag_query(tags, radius_m, lat, lon)
+
+    # Strategy 2: Name-based search
+    name_keywords = NICHE_NAME_KEYWORDS.get(niche_clean, [niche_clean])
+    name_query_lines = _build_name_query(name_keywords, radius_m, lat, lon)
+
+    # Combined query - both strategies in one request
     query = f"""
     [out:json][timeout:90];
     (
-      // Primary search by amenity tag
-      node["amenity"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
-      way["amenity"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
-      relation["amenity"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
-      
-      // Also search by shop tag for retail businesses
-      node["shop"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
-      way["shop"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
-      relation["shop"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
-      
-      // Search by tourism tag for hotels, etc.
-      node["tourism"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
-      way["tourism"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
-      relation["tourism"~"{amenity_filter}", i](around:{radius_meters},{lat},{lon});
+      // Tag-based search
+      {tag_query_lines}
+      // Name-based search
+      {name_query_lines}
     );
     out center tags;
     """
-    
-    try:
-        data = make_overpass_request(query)
-    except Exception as e:
-        print(f"Error fetching from Overpass API: {e}")
-        return []
-    
-    raw_businesses: List[Business] = []
-    
-    for element in data.get("elements", []):
-        tags = element.get("tags", {})
-        
-        # Skip elements without a name or brand (unless they have other valuable info)
-        if not tags.get("name") and not tags.get("brand") and not tags.get("operator"):
-            # Check if it has at least contact info or address
-            has_contact = any(tags.get(key) for key in [
-                "contact:phone", "phone", "contact:website", "website",
-                "addr:street", "addr:city"
-            ])
-            if not has_contact:
-                continue
-        
-        # Clean business name
-        raw_name = tags.get("name") or tags.get("brand") or tags.get("operator")
-        clean_name = clean_business_name(raw_name)
-        
-        # Determine category
-        category = tags.get("amenity") or tags.get("shop") or tags.get("tourism") or niche
-        
-        # Normalize contact information
-        phone = normalize_phone(
-            tags.get("contact:phone") or tags.get("phone")
-        )
-        website = normalize_website(
-            tags.get("contact:website") or tags.get("website")
-        )
-        
-        # Prepare contact dictionary only if there's data
-        contact_data = {}
-        if phone:
-            contact_data["phone"] = phone
-        if website:
-            contact_data["website"] = website
-        
-        email = tags.get("contact:email") or tags.get("email")
-        if email:
-            contact_data["email"] = email
-            
-        facebook = tags.get("contact:facebook")
-        if facebook:
-            contact_data["facebook"] = facebook
-            
-        instagram = tags.get("contact:instagram")
-        if instagram:
-            contact_data["instagram"] = instagram
-        
-        contact = contact_data if contact_data else None
-        
-        # Prepare address dictionary only if there's data
-        address_data = {}
-        street = tags.get("addr:street")
-        if street:
-            address_data["street"] = street
-            
-        city = tags.get("addr:city") or tags.get("addr:suburb") or tags.get("addr:town")
-        if city:
-            address_data["city"] = city
-            
-        postcode = tags.get("addr:postcode")
-        if postcode:
-            address_data["postcode"] = postcode
-            
-        full_address = tags.get("addr:full")
-        if full_address:
-            address_data["full"] = full_address
-        
-        address = address_data if address_data else None
-        
-        # Get coordinates
-        lat_coord = element.get("lat") or element.get("center", {}).get("lat")
-        lon_coord = element.get("lon") or element.get("center", {}).get("lon")
-        
-        # Create Business object
-        business = Business(
-            name=clean_name,
-            category=category,
-            brand=clean_business_name(tags.get("brand")),
-            contact=contact,
-            opening_hours=tags.get("opening_hours"),
-            address=address,
-            latitude=float(lat_coord) if lat_coord is not None else None,
-            longitude=float(lon_coord) if lon_coord is not None else None,
-            source_id=f"{element['type']}_{element.get('id', 'unknown')}"
-        )
-        
-        # Only add if it has at least a name
-        if business.name or business.brand:
-            raw_businesses.append(business)
-    
-    # Deduplicate businesses
-    unique_businesses = deduplicate_businesses(raw_businesses)
-    
-    # Sort by name for consistent results
-    unique_businesses.sort(key=lambda x: (x.name or '').lower())
-    
-    # Convert to dictionary format for API response
+
+    data = make_request(query)
+    raw: List[Business] = []
+    for elem in data.get("elements", []):
+        b = _parse_element(elem, niche_clean)
+        if b:
+            raw.append(b)
+
+    unique = deduplicate(raw)
+    unique.sort(key=lambda x: (
+        0 if not (x.contact or {}).get('website') else 1,
+        0 if not (x.contact or {}).get('phone') else 1,
+        (x.name or '').lower()
+    ))
+
     results = []
-    for business in unique_businesses:
-        result_dict = {
-            "name": business.name,
-            "category": business.category,
-            "brand": business.brand,
-            "contact": business.contact,
-            "opening_hours": business.opening_hours,
-            "address": business.address,
-            "latitude": business.latitude,
-            "longitude": business.longitude,
-            "source_id": business.source_id
+    for b in unique:
+        d = {
+            "name": b.name,
+            "category": b.category,
+            "brand": b.brand,
+            "contact": b.contact,
+            "opening_hours": b.opening_hours,
+            "address": b.address,
+            "latitude": b.latitude,
+            "longitude": b.longitude,
+            "source_id": b.source_id,
         }
-        
-        # Remove None values from the dictionary
-        result_dict = {k: v for k, v in result_dict.items() if v is not None}
-        
-        results.append(result_dict)
-    
-    print(f"Found {len(raw_businesses)} raw businesses, {len(unique_businesses)} after deduplication")
+        results.append({k: v for k, v in d.items() if v is not None})
+
     return results
-
-
-# Example usage function (for testing)
-if __name__ == "__main__":
-    try:
-        # Test with Mumbai coordinates
-        businesses = get_businesses(
-            lat=19.0760,
-            lon=72.8777,
-            radius_km=2,
-            niche="restaurant"
-        )
-        
-        print(f"\nFound {len(businesses)} unique businesses:")
-        for i, biz in enumerate(businesses[:10], 1):  # Show first 10
-            print(f"\n{i}. {biz.get('name', 'Unknown')} - {biz.get('category', 'Unknown')}")
-            if biz.get('contact', {}).get('phone'):
-                print(f"   Phone: {biz['contact']['phone']}")
-            if biz.get('address', {}).get('city'):
-                print(f"   Location: {biz['address'].get('city')}")
-                
-    except Exception as e:
-        print(f"Error: {e}")

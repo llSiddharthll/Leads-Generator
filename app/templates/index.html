@@ -243,14 +243,41 @@ const PAGE_SIZE = 12;
 let searchNiche = '';
 let searchLocation = '';
 
-// --- Lead Scoring ---
+// --- Lead Scoring (considers ALL services, not just websites) ---
 function scoreLead(b) {
   const hasWebsite = !!b.contact?.website;
   const hasPhone = !!b.contact?.phone;
   const hasSocial = !!(b.contact?.facebook || b.contact?.instagram);
-  if (!hasWebsite) return 'HOT';
-  if (!hasSocial || !hasPhone) return 'WARM';
+  const hasEmail = !!b.contact?.email;
+  // Score: more gaps = hotter lead
+  let gaps = 0;
+  if (!hasWebsite) gaps += 3;     // Biggest gap
+  if (!hasSocial) gaps += 2;      // Needs social media
+  if (!hasPhone) gaps += 1;       // Can't even be contacted easily
+  if (!hasEmail) gaps += 1;       // No email presence
+  if (gaps >= 5) return 'HOT';
+  if (gaps >= 2) return 'WARM';
   return 'COLD';
+}
+
+function getServiceTags(b) {
+  const tags = [];
+  if (!b.contact?.website) tags.push({label: 'Needs Website', color: 'red'});
+  if (!b.contact?.facebook && !b.contact?.instagram) tags.push({label: 'Needs Social Media', color: 'orange'});
+  if (!b.contact?.phone) tags.push({label: 'No Phone Online', color: 'yellow'});
+  // Category-specific service suggestions
+  const cat = (b.category || '').toLowerCase();
+  if (['restaurant','cafe','bakery','hotel','food_court','fast_food'].some(c => cat.includes(c)))
+    tags.push({label: 'Food Photography', color: 'purple'});
+  if (['salon','beauty','spa','gym','fitness','boutique'].some(c => cat.includes(c)))
+    tags.push({label: 'Brand Shoot', color: 'pink'});
+  if (['clinic','dentist','hospital','doctor'].some(c => cat.includes(c)))
+    tags.push({label: 'Local SEO', color: 'blue'});
+  if (['real_estate','property','estate'].some(c => cat.includes(c)))
+    tags.push({label: 'Property Shoots', color: 'purple'});
+  if (['coaching','school','college','training'].some(c => cat.includes(c)))
+    tags.push({label: 'Lead Gen Ads', color: 'blue'});
+  return tags.slice(0, 4); // Max 4 tags
 }
 
 function scoreValue(s) { return s === 'HOT' ? 3 : s === 'WARM' ? 2 : 1; }
@@ -350,20 +377,23 @@ function renderCards() {
         ${b.contact?.email ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-envelope text-purple-400 w-4 text-center text-xs"></i><a href="mailto:${b.contact.email}" class="text-gray-300 hover:text-white truncate transition-colors">${esc(b.contact.email)}</a></div>` : ''}
       </div>
 
-      <!-- Insight Badges -->
+      <!-- Service Opportunity Tags -->
       <div class="flex flex-wrap gap-1.5 mb-4">
-        ${!hasWebsite ? '<span class="px-2 py-0.5 bg-red-500/10 text-red-400 rounded-md text-[10px] font-medium">Needs Website</span>' : ''}
-        ${!hasSocial ? '<span class="px-2 py-0.5 bg-orange-500/10 text-orange-400 rounded-md text-[10px] font-medium">No Social Media</span>' : ''}
-        ${!hasPhone ? '<span class="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 rounded-md text-[10px] font-medium">No Phone</span>' : ''}
-        ${hasWebsite && hasSocial && hasPhone ? '<span class="px-2 py-0.5 bg-gray-500/10 text-gray-400 rounded-md text-[10px] font-medium">Has Presence</span>' : ''}
+        ${getServiceTags(b).map(t => {
+          const colors = {red:'red',orange:'orange',yellow:'yellow',purple:'purple',pink:'pink',blue:'blue',gray:'gray'};
+          const c = colors[t.color] || 'gray';
+          return `<span class="px-2 py-0.5 bg-${c}-500/10 text-${c}-400 rounded-md text-[10px] font-medium">${t.label}</span>`;
+        }).join('')}
+        ${!getServiceTags(b).length ? '<span class="px-2 py-0.5 bg-gray-500/10 text-gray-400 rounded-md text-[10px] font-medium">Has Presence</span>' : ''}
       </div>
 
       <!-- Actions -->
       <div class="flex items-center gap-2 pt-3 border-t border-white/5">
-        ${hasPhone ? `<a href="https://wa.me/${(b.contact.phone||'').replace(/[^0-9]/g,'')}" target="_blank" class="flex-1 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium text-center transition-all"><i class="fab fa-whatsapp mr-1"></i>WhatsApp</a>` : ''}
-        ${hasPhone ? `<a href="tel:${b.contact.phone}" class="flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium text-center transition-all"><i class="fas fa-phone mr-1"></i>Call</a>` : ''}
-        ${b.latitude ? `<a href="https://www.google.com/maps?q=${b.latitude},${b.longitude}" target="_blank" class="flex-1 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 rounded-lg text-xs font-medium text-center transition-all"><i class="fas fa-map mr-1"></i>Maps</a>` : ''}
-        <button onclick='generatePitch(${JSON.stringify(b).replace(/'/g,"&#39;")})' class="flex-1 px-3 py-2 bg-monk-500/10 hover:bg-monk-500/20 text-monk-400 rounded-lg text-xs font-medium text-center transition-all"><i class="fas fa-robot mr-1"></i>AI Pitch</button>
+        ${hasPhone ? `<a href="https://wa.me/${(b.contact.phone||'').replace(/[^0-9]/g,'')}" target="_blank" class="flex-1 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium text-center transition-all" title="Open WhatsApp"><i class="fab fa-whatsapp mr-1"></i>WhatsApp</a>` : ''}
+        ${hasPhone ? `<a href="tel:${b.contact.phone}" class="flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium text-center transition-all" title="Call directly"><i class="fas fa-phone mr-1"></i>Call</a>` : ''}
+        <a href="https://www.google.com/maps/search/${enc(b.name + ' ' + (b.address?.city || searchLocation))}" target="_blank" class="flex-1 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 rounded-lg text-xs font-medium text-center transition-all" title="Find on Google Maps"><i class="fas fa-map-marker-alt mr-1"></i>Maps</a>
+        ${hasWebsite ? `<a href="${b.contact.website}" target="_blank" class="flex-1 px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-medium text-center transition-all" title="Visit website"><i class="fas fa-globe mr-1"></i>Site</a>` : ''}
+        <button onclick='generatePitch(${JSON.stringify(b).replace(/'/g,"&#39;")})' class="flex-1 px-3 py-2 bg-monk-500/10 hover:bg-monk-500/20 text-monk-400 rounded-lg text-xs font-medium text-center transition-all" title="Generate AI outreach pitch"><i class="fas fa-robot mr-1"></i>Pitch</button>
       </div>
     `;
     grid.appendChild(card);
@@ -469,12 +499,22 @@ async function generatePitch(b) {
         </div>
       </div>` : ''}
 
+      <!-- Quick Win -->
+      ${data.quick_win ? `
+      <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <i class="fas fa-bolt text-emerald-400"></i>
+          <h4 class="font-semibold text-emerald-300 text-sm">Quick Win (deliver in &lt;1 week)</h4>
+        </div>
+        <p class="text-sm text-gray-300">${esc(data.quick_win)}</p>
+      </div>` : ''}
+
       <!-- Conversation Starter -->
       ${data.conversation_starter ? `
       <div class="bg-white/5 border border-white/10 rounded-xl p-4">
         <div class="flex items-center gap-2 mb-2">
           <i class="fas fa-comment text-gray-400"></i>
-          <h4 class="font-semibold text-gray-300 text-sm">Cold Call / In-Person Opener</h4>
+          <h4 class="font-semibold text-gray-300 text-sm">Cold Call / Walk-In Opener</h4>
         </div>
         <p class="text-sm text-gray-400 italic">"${esc(data.conversation_starter)}"</p>
       </div>` : ''}
@@ -543,6 +583,8 @@ async function runBulkSummary() {
       ${data.top_pitch_angle ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">🎯 Best Pitch Angle</p><p class="text-sm text-gray-300">${esc(data.top_pitch_angle)}</p></div>` : ''}
       ${data.quick_wins ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">⚡ Quick Wins</p><p class="text-sm text-gray-300">${esc(data.quick_wins)}</p></div>` : ''}
       ${data.estimated_conversion ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">📊 Conversion Estimate</p><p class="text-sm text-gray-300">${esc(data.estimated_conversion)}</p></div>` : ''}
+      ${data.services_to_push?.length ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-2">🛠️ Services to Push</p><div class="space-y-1">${data.services_to_push.map(s => `<p class="text-sm text-gray-300">• ${esc(s)}</p>`).join('')}</div></div>` : ''}
+      ${data.market_insight ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">💡 Market Insight</p><p class="text-sm text-gray-300">${esc(data.market_insight)}</p></div>` : ''}
     `;
   } catch (err) {
     content.innerHTML = `<p class="text-red-400">Analysis failed: ${esc(err.message)}</p>`;
@@ -557,18 +599,21 @@ async function runBulkSummary() {
 // --- Export CSV ---
 function exportCSV() {
   if (!allLeads.length) return;
-  const rows = [['Name','Category','Score','Phone','Email','Website','Address','City'].join(',')];
+  const rows = [['Name','Category','Lead Score','Phone','Email','Website','Facebook','Instagram','Address','City','Google Maps','Opening Hours'].join(',')];
   allLeads.forEach(b => {
+    const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(b.name + ' ' + (b.address?.city || searchLocation))}`;
     rows.push([
       q(b.name), q(b.category), q(b._score),
       q(b.contact?.phone), q(b.contact?.email), q(b.contact?.website),
-      q(b.address?.street), q(b.address?.city)
+      q(b.contact?.facebook), q(b.contact?.instagram),
+      q(b.address?.street), q(b.address?.city),
+      q(mapsUrl), q(b.opening_hours)
     ].join(','));
   });
-  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `leads_${searchNiche}_${searchLocation}_${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `creative_monk_leads_${searchNiche}_${searchLocation}_${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
