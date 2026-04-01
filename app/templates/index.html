@@ -3,629 +3,582 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Business Finder - Discover Local Businesses</title>
-  <meta name="description" content="Find businesses by niche, location, and radius">
-  
-  <!-- Tailwind CSS -->
+  <title>Lead Engine — Creative Monk</title>
+  <meta name="description" content="AI-powered lead generation tool by Creative Monk">
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Font Awesome for icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            monk: { 50:'#fff7ed', 100:'#ffedd5', 200:'#fed7aa', 300:'#fdba74', 400:'#fb923c', 500:'#f97316', 600:'#ea580c', 700:'#c2410c', 800:'#9a3412', 900:'#7c2d12' },
+            dark: { 800:'#1a1a2e', 900:'#0f0f23' }
+          }
+        }
+      }
+    }
+  </script>
   <style>
-    /* Custom styles for better UX */
-    .fade-in {
-      animation: fadeIn 0.3s ease-in-out;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .shake {
-      animation: shake 0.5s ease-in-out;
-    }
-    
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-      20%, 40%, 60%, 80% { transform: translateX(5px); }
-    }
-    
-    /* Smooth transitions */
-    .transition-all {
-      transition: all 0.2s ease;
-    }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
+    @keyframes pulse-border { 0%,100% { border-color: #f97316 } 50% { border-color: #fdba74 } }
+    .fade-up { animation: fadeUp .35s ease-out both }
+    .stagger-1 { animation-delay:.05s } .stagger-2 { animation-delay:.1s } .stagger-3 { animation-delay:.15s }
+    .stagger-4 { animation-delay:.2s } .stagger-5 { animation-delay:.25s } .stagger-6 { animation-delay:.3s }
+    .hot-pulse { animation: pulse-border 2s ease-in-out infinite }
+    .score-hot { background: linear-gradient(135deg, #dc2626, #ef4444); color: white }
+    .score-warm { background: linear-gradient(135deg, #ea580c, #f97316); color: white }
+    .score-cold { background: linear-gradient(135deg, #6b7280, #9ca3af); color: white }
+    .card-enter { animation: fadeUp .3s ease-out both }
+    .glass { background: rgba(255,255,255,.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.08) }
+    .ai-shimmer { background: linear-gradient(90deg, transparent 0%, rgba(249,115,22,.08) 50%, transparent 100%); background-size: 200% 100%; animation: shimmer 2s linear infinite }
+    @keyframes shimmer { 0% { background-position:200% 0 } 100% { background-position:-200% 0 } }
+    ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-track { background:#1a1a2e } ::-webkit-scrollbar-thumb { background:#f97316; border-radius:3px }
   </style>
 </head>
-<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+<body class="bg-dark-900 text-gray-100 min-h-screen">
 
-  <!-- Main Content -->
-  <main class="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Search Card -->
-    <div class="bg-white rounded-xl shadow-lg p-6 mb-8 fade-in">
-      <div class="mb-6">
-        <h2 class="text-xl font-semibold text-gray-800 mb-2">Find Businesses</h2>
-        <p class="text-gray-600">Enter search criteria to discover businesses in your desired area</p>
+  <!-- Header -->
+  <header class="bg-dark-800 border-b border-white/5 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-monk-500 to-monk-600 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-monk-500/20">CM</div>
+        <div>
+          <h1 class="text-lg font-bold text-white leading-tight">Lead Engine</h1>
+          <p class="text-xs text-monk-400 font-medium">by Creative Monk</p>
+        </div>
       </div>
-
-      <!-- Search Form -->
-      <form id="searchForm" class="space-y-4 md:space-y-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-4 md:items-center">
-        <div class="space-y-2">
-          <label for="niche" class="block text-sm font-medium text-gray-700">
-            <i class="fas fa-store mr-1"></i> Business Type
-          </label>
-          <div class="relative">
-            <input
-              id="niche"
-              type="text"
-              placeholder="e.g., restaurant, cafe, hotel"
-              class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-              required
-            />
-            <i class="fas fa-utensils absolute left-3 top-3.5 text-gray-400"></i>
-          </div>
-          <p class="text-xs text-gray-500">Enter the type of business you're looking for</p>
+      <div class="flex items-center gap-4">
+        <div id="aiStatus" class="hidden items-center gap-2 px-3 py-1.5 rounded-full bg-monk-500/10 border border-monk-500/20">
+          <div class="w-2 h-2 rounded-full bg-monk-500 animate-pulse"></div>
+          <span class="text-xs font-medium text-monk-400">AI Active</span>
         </div>
-
-        <div class="space-y-2">
-          <label for="location" class="block text-sm font-medium text-gray-700">
-            <i class="fas fa-map-marker-alt mr-1"></i> Location
-          </label>
-          <div class="relative">
-            <input
-              id="location"
-              type="text"
-              placeholder="e.g., Mumbai, Delhi, Bangalore"
-              class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-              required
-            />
-            <i class="fas fa-map-pin absolute left-3 top-3.5 text-gray-400"></i>
-          </div>
-          <p class="text-xs text-gray-500">City or area name</p>
-        </div>
-
-        <div class="space-y-2">
-          <label for="radius" class="block text-sm font-medium text-gray-700">
-            <i class="fas fa-expand-alt mr-1"></i> Search Radius
-          </label>
-          <div class="relative">
-            <input
-              id="radius"
-              type="number"
-              min="1"
-              max="50"
-              value="5"
-              placeholder="Radius in km"
-              class="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-              required
-            />
-            <i class="fas fa-ruler-combined absolute left-3 top-3.5 text-gray-400"></i>
-          </div>
-          <p class="text-xs text-gray-500">Distance from location (1-50 km)</p>
-        </div>
-
-        <div class="flex items-end">
-          <button
-            type="submit"
-            id="searchBtn"
-            class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 flex items-center justify-center"
-          >
-            <i class="fas fa-search mr-2"></i>
-            <span>Search Businesses</span>
-          </button>
-        </div>
-      </form>
-
-      <!-- Quick Suggestions -->
-      <div class="mt-6 pt-6 border-t border-gray-200">
-        <p class="text-sm font-medium text-gray-700 mb-3">Quick searches:</p>
-        <div class="flex flex-wrap gap-2">
-          <button type="button" class="quick-search-btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all" data-niche="restaurant" data-location="Mumbai">🍽️ Restaurants in Mumbai</button>
-          <button type="button" class="quick-search-btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all" data-niche="cafe" data-location="Delhi">☕ Cafes in Delhi</button>
-          <button type="button" class="quick-search-btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all" data-niche="hotel" data-location="Bangalore">🏨 Hotels in Bangalore</button>
-          <button type="button" class="quick-search-btn px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm transition-all" data-niche="pharmacy" data-location="Pune">💊 Pharmacy in Pune</button>
-        </div>
+        <a href="https://thecreativemonk.in" target="_blank" class="text-xs text-gray-500 hover:text-monk-400 transition-colors">thecreativemonk.in</a>
       </div>
     </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+    <!-- Search Section -->
+    <section class="mb-8 fade-up">
+      <div class="bg-dark-800 rounded-2xl border border-white/5 p-6 lg:p-8">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-white mb-1">Find Your Next Clients</h2>
+          <p class="text-gray-400 text-sm">Search businesses by industry and location — AI will score and prioritize leads for you</p>
+        </div>
+
+        <!-- Industry Chips -->
+        <div class="mb-6">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Popular Industries</p>
+          <div class="flex flex-wrap gap-2" id="nicheChips">
+            <button data-niche="restaurant" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🍽️ Restaurants</button>
+            <button data-niche="cafe" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">☕ Cafes</button>
+            <button data-niche="hotel" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🏨 Hotels</button>
+            <button data-niche="beauty" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">💇 Salons & Spas</button>
+            <button data-niche="gym" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🏋️ Gyms & Fitness</button>
+            <button data-niche="clinic" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🏥 Clinics</button>
+            <button data-niche="dentist" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🦷 Dental</button>
+            <button data-niche="school" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🎓 Coaching</button>
+            <button data-niche="car" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🚗 Auto Dealers</button>
+            <button data-niche="clothes" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">👗 Boutiques</button>
+            <button data-niche="real_estate" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🏠 Real Estate</button>
+            <button data-niche="pet" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🐾 Pet Shops</button>
+            <button data-niche="photography" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">📸 Photography</button>
+            <button data-niche="supermarket" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🛒 Supermarkets</button>
+          </div>
+        </div>
+
+        <!-- Search Form -->
+        <form id="searchForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Business Type</label>
+            <input id="niche" type="text" placeholder="e.g., restaurant, salon..." class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-monk-500 focus:ring-1 focus:ring-monk-500/50 transition-all" required />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Location</label>
+            <input id="location" type="text" placeholder="e.g., Chandigarh, Delhi..." class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-monk-500 focus:ring-1 focus:ring-monk-500/50 transition-all" required />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Radius (km)</label>
+            <input id="radius" type="number" min="1" max="50" value="5" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-monk-500 focus:ring-1 focus:ring-monk-500/50 transition-all" required />
+          </div>
+          <div class="flex items-end">
+            <button type="submit" id="searchBtn" class="w-full px-6 py-3 bg-gradient-to-r from-monk-500 to-monk-600 hover:from-monk-600 hover:to-monk-700 text-white font-semibold rounded-xl shadow-lg shadow-monk-500/25 hover:shadow-monk-500/40 transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
+              <i class="fas fa-search"></i>
+              <span>Find Leads</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
 
     <!-- Loader -->
-    <div id="loader" class="hidden flex flex-col items-center justify-center py-12 fade-in">
-      <div class="relative">
-        <div class="animate-spin rounded-full h-16 w-16 border-4 border-blue-200"></div>
-        <div class="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent absolute top-0 left-0"></div>
+    <div id="loader" class="hidden flex flex-col items-center justify-center py-20 fade-up">
+      <div class="relative w-16 h-16">
+        <div class="absolute inset-0 rounded-full border-2 border-monk-500/20"></div>
+        <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-monk-500 animate-spin"></div>
       </div>
-      <p class="mt-4 text-lg font-medium text-gray-700">Searching for businesses...</p>
-      <p class="mt-2 text-gray-500">This may take a few moments</p>
+      <p class="mt-6 text-lg font-medium text-white">Scanning businesses...</p>
+      <p class="mt-1 text-sm text-gray-500">Searching OpenStreetMap data in your area</p>
     </div>
 
-    <!-- Error Message -->
-    <div id="errorMessage" class="hidden bg-red-50 border border-red-200 rounded-xl p-6 mb-8 fade-in">
-      <div class="flex">
-        <i class="fas fa-exclamation-triangle text-red-500 text-xl mt-1 mr-3"></i>
+    <!-- Error -->
+    <div id="errorBox" class="hidden mb-8 bg-red-500/10 border border-red-500/20 rounded-2xl p-6 fade-up">
+      <div class="flex items-start gap-3">
+        <i class="fas fa-exclamation-circle text-red-400 text-lg mt-0.5"></i>
         <div>
-          <h3 class="font-medium text-red-800">Search Failed</h3>
-          <p id="errorText" class="text-red-600 mt-1">Unable to fetch business data. Please try again.</p>
-          <button id="retryBtn" class="mt-3 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium transition-all">
-            <i class="fas fa-redo mr-1"></i> Retry Search
+          <h3 class="font-semibold text-red-300">Search Failed</h3>
+          <p id="errorText" class="text-red-400/80 text-sm mt-1"></p>
+          <button onclick="document.getElementById('searchForm').dispatchEvent(new Event('submit',{cancelable:true}))" class="mt-3 px-4 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-sm font-medium transition-all">
+            <i class="fas fa-redo mr-1"></i> Retry
           </button>
         </div>
       </div>
     </div>
 
     <!-- Results Section -->
-    <div id="resultsSection" class="hidden fade-in">
-      <!-- Results Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6">
-        <div>
-          <h2 class="text-2xl font-bold text-gray-900">Search Results</h2>
-          <p id="resultsCount" class="text-gray-600 mt-1"></p>
-        </div>
-        <div class="mt-4 sm:mt-0 flex items-center space-x-4">
-          <div class="flex items-center">
-            <span class="text-gray-700 text-sm mr-2">Results per page:</span>
-            <select id="pageSizeSelect" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-            </select>
+    <section id="resultsSection" class="hidden">
+
+      <!-- Summary Bar -->
+      <div class="bg-dark-800 rounded-2xl border border-white/5 p-5 mb-6 fade-up">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div class="flex items-center gap-6 flex-wrap">
+            <div>
+              <p class="text-2xl font-bold text-white" id="totalCount">0</p>
+              <p class="text-xs text-gray-500">Total Leads</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                <span class="text-sm font-medium text-gray-300"><span id="hotCount">0</span> Hot</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-monk-500"></span>
+                <span class="text-sm font-medium text-gray-300"><span id="warmCount">0</span> Warm</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-gray-500"></span>
+                <span class="text-sm font-medium text-gray-300"><span id="coldCount">0</span> Cold</span>
+              </div>
+            </div>
           </div>
-          <button id="exportBtn" class="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm font-medium transition-all hidden">
-            <i class="fas fa-download mr-1"></i> Export CSV
-          </button>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button id="aiSummaryBtn" onclick="runBulkSummary()" class="px-4 py-2 bg-gradient-to-r from-monk-500/20 to-monk-600/20 hover:from-monk-500/30 hover:to-monk-600/30 text-monk-400 border border-monk-500/30 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
+              <i class="fas fa-robot"></i> AI Summary
+            </button>
+            <select id="sortSelect" onchange="sortAndRender()" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-300 focus:outline-none focus:border-monk-500">
+              <option value="score">Sort: Lead Score</option>
+              <option value="name">Sort: Name A-Z</option>
+              <option value="category">Sort: Category</option>
+            </select>
+            <button onclick="exportCSV()" class="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
+              <i class="fas fa-download"></i> Export CSV
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Results Table -->
-      <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Business Name</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Category</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Contact</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Website</th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Location</th>
-              </tr>
-            </thead>
-            <tbody id="tableBody" class="bg-white divide-y divide-gray-200"></tbody>
-          </table>
+      <!-- AI Summary Panel -->
+      <div id="aiSummaryPanel" class="hidden mb-6 bg-dark-800 rounded-2xl border border-monk-500/20 p-6 fade-up ai-shimmer">
+        <div class="flex items-center gap-2 mb-4">
+          <i class="fas fa-robot text-monk-500"></i>
+          <h3 class="font-semibold text-monk-400">AI Intelligence Report</h3>
+          <button onclick="document.getElementById('aiSummaryPanel').classList.add('hidden')" class="ml-auto text-gray-500 hover:text-gray-300"><i class="fas fa-times"></i></button>
         </div>
+        <div id="aiSummaryContent" class="text-sm text-gray-300 space-y-3"></div>
       </div>
+
+      <!-- Lead Cards Grid -->
+      <div id="cardsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-8"></div>
 
       <!-- No Results -->
-      <div id="noResults" class="hidden text-center py-12">
-        <i class="fas fa-search text-gray-300 text-5xl mb-4"></i>
-        <h3 class="text-xl font-medium text-gray-700">No businesses found</h3>
-        <p class="text-gray-500 mt-2">Try adjusting your search criteria</p>
+      <div id="noResults" class="hidden text-center py-16">
+        <i class="fas fa-search text-gray-600 text-4xl mb-4"></i>
+        <h3 class="text-lg font-semibold text-gray-400">No businesses found</h3>
+        <p class="text-gray-500 text-sm mt-1">Try a different location or business type</p>
       </div>
 
       <!-- Pagination -->
-      <div id="pagination" class="hidden mt-8 flex flex-col sm:flex-row items-center justify-between">
-        <div class="mb-4 sm:mb-0">
-          <p id="pageInfo" class="text-gray-700"></p>
-        </div>
-        <div class="flex space-x-2">
-          <button
-            id="firstBtn"
-            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            disabled
-          >
-            <i class="fas fa-angle-double-left"></i>
-          </button>
-          <button
-            id="prevBtn"
-            class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            disabled
-          >
-            <i class="fas fa-chevron-left mr-1"></i> Previous
-          </button>
-          <div class="flex items-center px-4">
-            <span id="currentPage" class="font-medium text-blue-600">1</span>
-            <span class="mx-1 text-gray-500">of</span>
-            <span id="totalPages" class="font-medium text-gray-700">1</span>
+      <div id="pagination" class="hidden flex items-center justify-center gap-3">
+        <button id="prevBtn" onclick="changePage(-1)" class="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-gray-300 font-medium transition-all disabled:opacity-30" disabled>
+          <i class="fas fa-chevron-left mr-1"></i> Previous
+        </button>
+        <span id="pageInfo" class="text-sm text-gray-500 px-4"></span>
+        <button id="nextBtn" onclick="changePage(1)" class="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-gray-300 font-medium transition-all disabled:opacity-30" disabled>
+          Next <i class="fas fa-chevron-right ml-1"></i>
+        </button>
+      </div>
+    </section>
+
+    <!-- Pitch Modal -->
+    <div id="pitchModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,.7)">
+      <div class="bg-dark-800 rounded-2xl border border-white/10 w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-robot text-monk-500"></i>
+            <h3 class="font-bold text-white text-lg">AI-Generated Pitch</h3>
           </div>
-          <button
-            id="nextBtn"
-            class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            disabled
-          >
-            Next <i class="fas fa-chevron-right ml-1"></i>
-          </button>
-          <button
-            id="lastBtn"
-            class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            disabled
-          >
-            <i class="fas fa-angle-double-right"></i>
-          </button>
+          <button onclick="closePitchModal()" class="text-gray-500 hover:text-white transition-colors"><i class="fas fa-times text-lg"></i></button>
         </div>
+        <div id="pitchModalContent" class="space-y-5"></div>
       </div>
     </div>
+
   </main>
 
-  <script>
-    const API_URL = `${window.location.origin}/find-businesses`;
-    
-    let businessData = [];
-    let currentPage = 1;
-    let pageSize = 10;
-    let totalPages = 1;
+  <!-- Footer -->
+  <footer class="border-t border-white/5 mt-12 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <p class="text-xs text-gray-600">Built by <a href="https://thecreativemonk.in" target="_blank" class="text-monk-500 hover:text-monk-400">Creative Monk</a> — Ignite Your Revenue Engine</p>
+      <p class="text-xs text-gray-600">Powered by AI <i class="fas fa-bolt text-monk-500 ml-1"></i></p>
+    </div>
+  </footer>
 
-    // Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', function() {
-      // Initialize all DOM elements
-      const elements = {
-        searchForm: document.getElementById('searchForm'),
-        loader: document.getElementById('loader'),
-        resultsSection: document.getElementById('resultsSection'),
-        pagination: document.getElementById('pagination'),
-        tableBody: document.getElementById('tableBody'),
-        noResults: document.getElementById('noResults'),
-        errorMessage: document.getElementById('errorMessage'),
-        errorText: document.getElementById('errorText'),
-        searchBtn: document.getElementById('searchBtn'),
-        retryBtn: document.getElementById('retryBtn'),
-        exportBtn: document.getElementById('exportBtn'),
-        totalBusinesses: document.getElementById('totalBusinesses'),
-        pageSizeSelect: document.getElementById('pageSizeSelect'),
-        resultsCount: document.getElementById('resultsCount'),
-        currentPage: document.getElementById('currentPage'),
-        totalPages: document.getElementById('totalPages'),
-        pageInfo: document.getElementById('pageInfo')
-      };
+<script>
+const API = window.location.origin;
+let allLeads = [];
+let currentPage = 1;
+const PAGE_SIZE = 12;
+let searchNiche = '';
+let searchLocation = '';
 
-      // Check if all required elements exist
-      const missingElements = [];
-      for (const [key, element] of Object.entries(elements)) {
-        if (!element) {
-          missingElements.push(key);
-          console.warn(`Element with ID not found: ${key}`);
-        }
-      }
-      
-      if (missingElements.length > 0) {
-        console.error('Missing elements:', missingElements);
-      }
+// --- Lead Scoring ---
+function scoreLead(b) {
+  const hasWebsite = !!b.contact?.website;
+  const hasPhone = !!b.contact?.phone;
+  const hasSocial = !!(b.contact?.facebook || b.contact?.instagram);
+  if (!hasWebsite) return 'HOT';
+  if (!hasSocial || !hasPhone) return 'WARM';
+  return 'COLD';
+}
 
-      // Initialize with some data
-      if (elements.totalBusinesses) {
-        elements.totalBusinesses.textContent = '12,543';
-      }
+function scoreValue(s) { return s === 'HOT' ? 3 : s === 'WARM' ? 2 : 1; }
 
-      // Quick search buttons
-      document.querySelectorAll('.quick-search-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const niche = btn.getAttribute('data-niche');
-          const location = btn.getAttribute('data-location');
-          
-          document.getElementById('niche').value = niche;
-          document.getElementById('location').value = location;
-          document.getElementById('radius').value = 5;
-          
-          // Trigger search
-          elements.searchForm.dispatchEvent(new Event('submit', { cancelable: true }));
-        });
-      });
+// --- Niche Chips ---
+document.querySelectorAll('.niche-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.getElementById('niche').value = chip.dataset.niche;
+    document.querySelectorAll('.niche-chip').forEach(c => c.classList.remove('bg-monk-500/20','text-monk-400','border-monk-500/30'));
+    chip.classList.add('bg-monk-500/20','text-monk-400','border-monk-500/30');
+  });
+});
 
-      // Page size change
-      if (elements.pageSizeSelect) {
-        elements.pageSizeSelect.addEventListener('change', (e) => {
-          pageSize = parseInt(e.target.value);
-          currentPage = 1;
-          if (businessData.length > 0) {
-            renderTable();
-            updatePagination();
-          }
-        });
-      }
+// --- Search ---
+document.getElementById('searchForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const niche = document.getElementById('niche').value.trim();
+  const location = document.getElementById('location').value.trim();
+  const radius = document.getElementById('radius').value;
+  if (!niche || !location) return;
+  searchNiche = niche;
+  searchLocation = location;
+  currentPage = 1;
 
-      // Search form submission
-      if (elements.searchForm) {
-        elements.searchForm.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          
-          const niche = document.getElementById('niche').value.trim();
-          const location = document.getElementById('location').value.trim();
-          const radius = document.getElementById('radius').value;
-          
-          // Input validation
-          if (!niche || !location || !radius) {
-            showError('Please fill in all fields');
-            return;
-          }
-          
-          if (radius < 1 || radius > 50) {
-            showError('Please enter a radius between 1 and 50 km');
-            return;
-          }
-          
-          // Update button state
-          if (elements.searchBtn) {
-            elements.searchBtn.disabled = true;
-            elements.searchBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Searching...';
-          }
-          
-          // Show loader, hide previous results/errors
-          showLoader();
-          hideResults();
-          hideError();
-          
-          currentPage = 1;
-          
-          try {
-            const response = await fetch(
-              `${API_URL}?niche=${encodeURIComponent(niche)}&location=${encodeURIComponent(location)}&radius_km=${radius}`,
-              {
-                method: 'GET',
-                headers: {
-                  'Accept': 'application/json',
-                  'Cache-Control': 'no-cache'
-                }
-              }
-            );
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Scanning...';
+  hide('resultsSection'); hide('errorBox'); show('loader');
+  document.getElementById('aiSummaryPanel').classList.add('hidden');
 
-            if (!response.ok) {
-              throw new Error(`API error: ${response.status}`);
-            }
+  try {
+    const res = await fetch(`${API}/find-businesses?niche=${enc(niche)}&location=${enc(location)}&radius_km=${radius}`);
+    if (!res.ok) throw new Error('API returned ' + res.status);
+    const data = await res.json();
+    allLeads = (data.businesses || []).map(b => ({ ...b, _score: scoreLead(b) }));
+    hide('loader');
+    show('resultsSection');
+    if (allLeads.length > 0) {
+      sortAndRender();
+      updateCounts();
+      hide('noResults');
+    } else {
+      document.getElementById('cardsGrid').innerHTML = '';
+      show('noResults');
+      hide('pagination');
+    }
+  } catch (err) {
+    hide('loader');
+    document.getElementById('errorText').textContent = err.message;
+    show('errorBox');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-search"></i><span>Find Leads</span>';
+  }
+});
 
-            const result = await response.json();
-            businessData = result.businesses || [];
-            
-            hideLoader();
-            
-            if (businessData.length > 0) {
-              showResults();
-              renderTable();
-              updatePagination();
-              updateResultsCount();
-              if (elements.exportBtn) {
-                elements.exportBtn.classList.remove('hidden');
-              }
-            } else {
-              showNoResults();
-            }
-            
-            // Update total businesses count (mock - you would get this from API)
-            if (elements.totalBusinesses) {
-              elements.totalBusinesses.textContent = (Math.floor(Math.random() * 10000) + 5000).toLocaleString();
-            }
-            
-          } catch (err) {
-            console.error('Search error:', err);
-            hideLoader();
-            showError(err.message || 'Failed to fetch data. Please check your connection and try again.');
-          } finally {
-            if (elements.searchBtn) {
-              elements.searchBtn.disabled = false;
-              elements.searchBtn.innerHTML = '<i class="fas fa-search mr-2"></i><span>Search Businesses</span>';
-            }
-          }
-        });
-      }
+// --- Sorting & Rendering ---
+function sortAndRender() {
+  const sort = document.getElementById('sortSelect').value;
+  if (sort === 'score') allLeads.sort((a,b) => scoreValue(b._score) - scoreValue(a._score));
+  else if (sort === 'name') allLeads.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  else if (sort === 'category') allLeads.sort((a,b) => (a.category||'').localeCompare(b.category||''));
+  renderCards();
+}
 
-      // Retry button
-      if (elements.retryBtn) {
-        elements.retryBtn.addEventListener('click', () => {
-          if (elements.searchForm) {
-            elements.searchForm.dispatchEvent(new Event('submit', { cancelable: true }));
-          }
-        });
-      }
+function renderCards() {
+  const grid = document.getElementById('cardsGrid');
+  grid.innerHTML = '';
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page = allLeads.slice(start, start + PAGE_SIZE);
 
-      // Pagination handlers
-      const firstBtn = document.getElementById('firstBtn');
-      const prevBtn = document.getElementById('prevBtn');
-      const nextBtn = document.getElementById('nextBtn');
-      const lastBtn = document.getElementById('lastBtn');
+  page.forEach((b, i) => {
+    const score = b._score;
+    const hasWebsite = !!b.contact?.website;
+    const hasPhone = !!b.contact?.phone;
+    const hasSocial = !!(b.contact?.facebook || b.contact?.instagram);
+    const addr = b.address ? [b.address.street, b.address.city].filter(Boolean).join(', ') : '';
 
-      if (firstBtn) firstBtn.onclick = () => {
-        currentPage = 1;
-        renderTable();
-        updatePagination();
-      };
+    const card = document.createElement('div');
+    card.className = `card-enter stagger-${(i % 6) + 1} bg-dark-800 rounded-2xl border ${score === 'HOT' ? 'border-red-500/30 hot-pulse' : 'border-white/5'} p-5 flex flex-col`;
 
-      if (prevBtn) prevBtn.onclick = () => {
-        if (currentPage > 1) {
-          currentPage--;
-          renderTable();
-          updatePagination();
-        }
-      };
+    card.innerHTML = `
+      <!-- Header -->
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex-1 min-w-0 mr-3">
+          <h3 class="font-semibold text-white text-base truncate" title="${esc(b.name||'Unknown')}">${esc(b.name||'Unknown Business')}</h3>
+          <p class="text-xs text-gray-500 mt-0.5">${esc(b.category||'Business')}</p>
+        </div>
+        <span class="score-${score.toLowerCase()} px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider flex-shrink-0">${score}</span>
+      </div>
 
-      if (nextBtn) nextBtn.onclick = () => {
-        if (currentPage < totalPages) {
-          currentPage++;
-          renderTable();
-          updatePagination();
-        }
-      };
+      <!-- Info -->
+      <div class="space-y-2 mb-4 flex-1">
+        ${hasPhone ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-phone text-emerald-400 w-4 text-center text-xs"></i><a href="tel:${b.contact.phone}" class="text-gray-300 hover:text-white transition-colors">${esc(b.contact.phone)}</a></div>` : `<div class="flex items-center gap-2 text-sm"><i class="fas fa-phone text-red-400/60 w-4 text-center text-xs"></i><span class="text-red-400/60 italic">No phone listed</span></div>`}
+        ${hasWebsite ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-globe text-blue-400 w-4 text-center text-xs"></i><a href="${b.contact.website}" target="_blank" class="text-blue-400 hover:text-blue-300 truncate transition-colors">${b.contact.website.replace(/^https?:\/\//,'').slice(0,30)}</a></div>` : `<div class="flex items-center gap-2 text-sm"><i class="fas fa-globe text-red-400/60 w-4 text-center text-xs"></i><span class="text-red-400/60 italic">No website</span></div>`}
+        ${addr ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-map-marker-alt text-monk-400 w-4 text-center text-xs"></i><span class="text-gray-400 truncate">${esc(addr)}</span></div>` : ''}
+        ${b.contact?.email ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-envelope text-purple-400 w-4 text-center text-xs"></i><a href="mailto:${b.contact.email}" class="text-gray-300 hover:text-white truncate transition-colors">${esc(b.contact.email)}</a></div>` : ''}
+      </div>
 
-      if (lastBtn) lastBtn.onclick = () => {
-        currentPage = totalPages;
-        renderTable();
-        updatePagination();
-      };
+      <!-- Insight Badges -->
+      <div class="flex flex-wrap gap-1.5 mb-4">
+        ${!hasWebsite ? '<span class="px-2 py-0.5 bg-red-500/10 text-red-400 rounded-md text-[10px] font-medium">Needs Website</span>' : ''}
+        ${!hasSocial ? '<span class="px-2 py-0.5 bg-orange-500/10 text-orange-400 rounded-md text-[10px] font-medium">No Social Media</span>' : ''}
+        ${!hasPhone ? '<span class="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 rounded-md text-[10px] font-medium">No Phone</span>' : ''}
+        ${hasWebsite && hasSocial && hasPhone ? '<span class="px-2 py-0.5 bg-gray-500/10 text-gray-400 rounded-md text-[10px] font-medium">Has Presence</span>' : ''}
+      </div>
 
-      // Export to CSV
-      if (elements.exportBtn) {
-        elements.exportBtn.addEventListener('click', () => {
-          if (businessData.length === 0) return;
-          
-          const headers = ['Name', 'Category', 'Phone', 'Website', 'City'];
-          const csvContent = [
-            headers.join(','),
-            ...businessData.map(b => [
-              `"${(b.name || '').replace(/"/g, '""')}"`,
-              `"${(b.category || '').replace(/"/g, '""')}"`,
-              b.contact?.phone || '',
-              b.contact?.website || '',
-              b.address?.city || ''
-            ].join(','))
-          ].join('\n');
-          
-          const blob = new Blob([csvContent], { type: 'text/csv' });
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `businesses_${new Date().toISOString().split('T')[0]}.csv`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          window.URL.revokeObjectURL(url);
-        });
-      }
+      <!-- Actions -->
+      <div class="flex items-center gap-2 pt-3 border-t border-white/5">
+        ${hasPhone ? `<a href="https://wa.me/${(b.contact.phone||'').replace(/[^0-9]/g,'')}" target="_blank" class="flex-1 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium text-center transition-all"><i class="fab fa-whatsapp mr-1"></i>WhatsApp</a>` : ''}
+        ${hasPhone ? `<a href="tel:${b.contact.phone}" class="flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium text-center transition-all"><i class="fas fa-phone mr-1"></i>Call</a>` : ''}
+        ${b.latitude ? `<a href="https://www.google.com/maps?q=${b.latitude},${b.longitude}" target="_blank" class="flex-1 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 rounded-lg text-xs font-medium text-center transition-all"><i class="fas fa-map mr-1"></i>Maps</a>` : ''}
+        <button onclick='generatePitch(${JSON.stringify(b).replace(/'/g,"&#39;")})' class="flex-1 px-3 py-2 bg-monk-500/10 hover:bg-monk-500/20 text-monk-400 rounded-lg text-xs font-medium text-center transition-all"><i class="fas fa-robot mr-1"></i>AI Pitch</button>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
 
-      // UI Functions
-      function showLoader() {
-        if (elements.loader) elements.loader.classList.remove('hidden');
-      }
+  updatePagination();
+}
 
-      function hideLoader() {
-        if (elements.loader) elements.loader.classList.add('hidden');
-      }
+// --- Counts ---
+function updateCounts() {
+  document.getElementById('totalCount').textContent = allLeads.length;
+  document.getElementById('hotCount').textContent = allLeads.filter(l => l._score === 'HOT').length;
+  document.getElementById('warmCount').textContent = allLeads.filter(l => l._score === 'WARM').length;
+  document.getElementById('coldCount').textContent = allLeads.filter(l => l._score === 'COLD').length;
+}
 
-      function showResults() {
-        if (elements.resultsSection) elements.resultsSection.classList.remove('hidden');
-        if (elements.noResults) elements.noResults.classList.add('hidden');
-      }
+// --- Pagination ---
+function updatePagination() {
+  const total = Math.ceil(allLeads.length / PAGE_SIZE);
+  if (total <= 1) { hide('pagination'); return; }
+  show('pagination');
+  document.getElementById('prevBtn').disabled = currentPage <= 1;
+  document.getElementById('nextBtn').disabled = currentPage >= total;
+  document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${total}`;
+}
 
-      function hideResults() {
-        if (elements.resultsSection) elements.resultsSection.classList.add('hidden');
-        if (elements.pagination) elements.pagination.classList.add('hidden');
-        if (elements.noResults) elements.noResults.classList.add('hidden');
-      }
+function changePage(dir) {
+  currentPage += dir;
+  renderCards();
+  window.scrollTo({ top: document.getElementById('resultsSection').offsetTop - 80, behavior: 'smooth' });
+}
 
-      function showNoResults() {
-        if (elements.resultsSection) elements.resultsSection.classList.remove('hidden');
-        if (elements.tableBody) elements.tableBody.innerHTML = '';
-        if (elements.noResults) elements.noResults.classList.remove('hidden');
-        if (elements.pagination) elements.pagination.classList.add('hidden');
-        if (elements.exportBtn) elements.exportBtn.classList.add('hidden');
-      }
+// --- AI: Generate Pitch ---
+async function generatePitch(b) {
+  const modal = document.getElementById('pitchModal');
+  const content = document.getElementById('pitchModalContent');
+  modal.classList.remove('hidden');
+  document.getElementById('aiStatus').classList.remove('hidden');
+  document.getElementById('aiStatus').classList.add('flex');
 
-      function showError(message) {
-        if (elements.errorText) elements.errorText.textContent = message;
-        if (elements.errorMessage) {
-          elements.errorMessage.classList.remove('hidden');
-          elements.errorMessage.classList.add('shake');
-          setTimeout(() => elements.errorMessage.classList.remove('shake'), 500);
-        }
-      }
+  content.innerHTML = `
+    <div class="flex flex-col items-center justify-center py-12">
+      <div class="relative w-12 h-12">
+        <div class="absolute inset-0 rounded-full border-2 border-monk-500/20"></div>
+        <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-monk-500 animate-spin"></div>
+      </div>
+      <p class="mt-4 text-sm text-gray-400">Generating personalized pitch for <strong class="text-white">${esc(b.name)}</strong>...</p>
+    </div>`;
 
-      function hideError() {
-        if (elements.errorMessage) elements.errorMessage.classList.add('hidden');
-      }
-
-      function renderTable() {
-        if (!elements.tableBody) return;
-        
-        elements.tableBody.innerHTML = '';
-        
-        const start = (currentPage - 1) * pageSize;
-        const end = Math.min(start + pageSize, businessData.length);
-        
-        for (let i = start; i < end; i++) {
-          const business = businessData[i];
-          const row = document.createElement('tr');
-          row.className = 'hover:bg-gray-50 transition-colors';
-          
-          // Format phone number
-          let phoneDisplay = '-';
-          if (business.contact?.phone) {
-            const phone = business.contact.phone.replace(/\D/g, '');
-            phoneDisplay = phone.length === 10 ? 
-              `(${phone.substring(0,3)}) ${phone.substring(3,6)}-${phone.substring(6)}` : 
-              business.contact.phone;
-          }
-          
-          // Truncate long names
-          const businessName = business.name || '-';
-          const displayName = businessName.length > 30 ? 
-            businessName.substring(0, 30) + '...' : businessName;
-          
-          row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm font-medium text-gray-900" title="${businessName}">
-                ${displayName}
-                ${business.rating ? `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                  <i class="fas fa-star text-yellow-500 mr-1 text-xs"></i>${business.rating}
-                </span>` : ''}
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-gray-900">${business.category || '-'}</div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-gray-900">
-                ${business.contact?.phone ? 
-                  `<a href="tel:${business.contact.phone}" class="text-blue-600 hover:text-blue-800 transition-colors">
-                    <i class="fas fa-phone-alt mr-1"></i>${phoneDisplay}
-                  </a>` : 
-                  '-'}
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm">
-                ${business.contact?.website ? 
-                  `<a href="${business.contact.website}" target="_blank" rel="noopener noreferrer" 
-                    class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors">
-                    <i class="fas fa-external-link-alt mr-1"></i>Visit
-                  </a>` : 
-                  '-'}
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-gray-900">
-                ${business.address?.city || '-'}
-                ${business.address?.street ? `<div class="text-xs text-gray-500">${business.address.street}</div>` : ''}
-              </div>
-            </td>
-          `;
-          
-          elements.tableBody.appendChild(row);
-        }
-      }
-
-      function updatePagination() {
-        totalPages = Math.ceil(businessData.length / pageSize);
-        
-        if (businessData.length > pageSize) {
-          if (elements.pagination) elements.pagination.classList.remove('hidden');
-          
-          if (elements.currentPage) elements.currentPage.textContent = currentPage;
-          if (elements.totalPages) elements.totalPages.textContent = totalPages;
-          
-          // Update button states
-          if (firstBtn) firstBtn.disabled = currentPage === 1;
-          if (prevBtn) prevBtn.disabled = currentPage === 1;
-          if (nextBtn) nextBtn.disabled = currentPage === totalPages;
-          if (lastBtn) lastBtn.disabled = currentPage === totalPages;
-          
-          // Update page info
-          if (elements.pageInfo) {
-            const start = Math.min((currentPage - 1) * pageSize + 1, businessData.length);
-            const end = Math.min(currentPage * pageSize, businessData.length);
-            elements.pageInfo.textContent = `Showing ${start} to ${end} of ${businessData.length} businesses`;
-          }
-        } else {
-          if (elements.pagination) elements.pagination.classList.add('hidden');
-          if (elements.pageInfo && businessData.length > 0) {
-            elements.pageInfo.textContent = `Showing all ${businessData.length} businesses`;
-          }
-        }
-      }
-
-      function updateResultsCount() {
-        if (!elements.resultsCount) return;
-        const count = businessData.length;
-        elements.resultsCount.textContent = count === 1 ? 
-          '1 business found' : 
-          `${count.toLocaleString()} businesses found`;
-      }
+  try {
+    const res = await fetch(`${API}/ai/generate-pitch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: b.name,
+        category: b.category || '',
+        location: searchLocation,
+        has_website: !!b.contact?.website,
+        has_phone: !!b.contact?.phone,
+        has_social: !!(b.contact?.facebook || b.contact?.instagram),
+        website_url: b.contact?.website || null,
+      })
     });
-  </script>
+
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    content.innerHTML = `
+      <!-- WhatsApp Pitch -->
+      <div class="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i class="fab fa-whatsapp text-emerald-400"></i>
+            <h4 class="font-semibold text-emerald-300 text-sm">WhatsApp Message</h4>
+          </div>
+          <button onclick="copyText(this, 'wa')" class="px-3 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium transition-all"><i class="fas fa-copy mr-1"></i>Copy</button>
+        </div>
+        <p id="waPitch" class="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">${esc(data.whatsapp_pitch || '')}</p>
+      </div>
+
+      <!-- Email Pitch -->
+      <div class="bg-blue-500/5 border border-blue-500/20 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-envelope text-blue-400"></i>
+            <h4 class="font-semibold text-blue-300 text-sm">Email</h4>
+          </div>
+          <button onclick="copyText(this, 'email')" class="px-3 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium transition-all"><i class="fas fa-copy mr-1"></i>Copy</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-2">Subject: <span class="text-gray-300">${esc(data.email_subject || '')}</span></p>
+        <p id="emailPitch" class="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">${esc(data.email_pitch || '')}</p>
+      </div>
+
+      <!-- Recommended Services -->
+      ${data.recommended_services?.length ? `
+      <div class="bg-monk-500/5 border border-monk-500/20 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <i class="fas fa-bullseye text-monk-400"></i>
+          <h4 class="font-semibold text-monk-300 text-sm">Recommended Services to Pitch</h4>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${data.recommended_services.map(s => `<span class="px-3 py-1 bg-monk-500/10 text-monk-400 rounded-lg text-xs font-medium">${esc(s)}</span>`).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Conversation Starter -->
+      ${data.conversation_starter ? `
+      <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <i class="fas fa-comment text-gray-400"></i>
+          <h4 class="font-semibold text-gray-300 text-sm">Cold Call / In-Person Opener</h4>
+        </div>
+        <p class="text-sm text-gray-400 italic">"${esc(data.conversation_starter)}"</p>
+      </div>` : ''}
+
+      <!-- Quick Actions -->
+      <div class="flex gap-3 pt-2">
+        ${b.contact?.phone ? `<a href="https://wa.me/${(b.contact.phone||'').replace(/[^0-9]/g,'')}?text=${enc(data.whatsapp_pitch||'')}" target="_blank" class="flex-1 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-medium text-center transition-all"><i class="fab fa-whatsapp mr-1"></i>Send on WhatsApp</a>` : ''}
+        ${b.contact?.email ? `<a href="mailto:${b.contact.email}?subject=${enc(data.email_subject||'')}&body=${enc(data.email_pitch||'')}" class="flex-1 px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm font-medium text-center transition-all"><i class="fas fa-envelope mr-1"></i>Send Email</a>` : ''}
+      </div>
+    `;
+  } catch (err) {
+    content.innerHTML = `<div class="text-center py-8"><i class="fas fa-exclamation-triangle text-red-400 text-2xl mb-3"></i><p class="text-red-400">${esc(err.message)}</p><button onclick="generatePitch(${JSON.stringify(b).replace(/'/g,"&#39;")})" class="mt-3 px-4 py-2 bg-monk-500/20 text-monk-400 rounded-lg text-sm">Retry</button></div>`;
+  } finally {
+    document.getElementById('aiStatus').classList.add('hidden');
+    document.getElementById('aiStatus').classList.remove('flex');
+  }
+}
+
+function closePitchModal() {
+  document.getElementById('pitchModal').classList.add('hidden');
+}
+
+// Close modal on backdrop click
+document.getElementById('pitchModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closePitchModal();
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closePitchModal();
+});
+
+function copyText(btn, type) {
+  const el = type === 'wa' ? document.getElementById('waPitch') : document.getElementById('emailPitch');
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check mr-1"></i>Copied!';
+    setTimeout(() => btn.innerHTML = orig, 2000);
+  });
+}
+
+// --- AI: Bulk Summary ---
+async function runBulkSummary() {
+  const btn = document.getElementById('aiSummaryBtn');
+  const panel = document.getElementById('aiSummaryPanel');
+  const content = document.getElementById('aiSummaryContent');
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Analyzing...';
+  panel.classList.remove('hidden');
+  document.getElementById('aiStatus').classList.remove('hidden');
+  document.getElementById('aiStatus').classList.add('flex');
+  content.innerHTML = '<p class="text-gray-500 animate-pulse">AI is analyzing all leads...</p>';
+
+  try {
+    const res = await fetch(`${API}/ai/bulk-summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leads: allLeads.slice(0, 50), niche: searchNiche, location: searchLocation })
+    });
+    const data = await res.json();
+
+    content.innerHTML = `
+      <p class="text-gray-200 leading-relaxed">${esc(data.summary || '')}</p>
+      ${data.strategy ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">📋 Recommended Strategy</p><p class="text-sm text-gray-300">${esc(data.strategy)}</p></div>` : ''}
+      ${data.top_pitch_angle ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">🎯 Best Pitch Angle</p><p class="text-sm text-gray-300">${esc(data.top_pitch_angle)}</p></div>` : ''}
+      ${data.quick_wins ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">⚡ Quick Wins</p><p class="text-sm text-gray-300">${esc(data.quick_wins)}</p></div>` : ''}
+      ${data.estimated_conversion ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">📊 Conversion Estimate</p><p class="text-sm text-gray-300">${esc(data.estimated_conversion)}</p></div>` : ''}
+    `;
+  } catch (err) {
+    content.innerHTML = `<p class="text-red-400">Analysis failed: ${esc(err.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-robot mr-1"></i> AI Summary';
+    document.getElementById('aiStatus').classList.add('hidden');
+    document.getElementById('aiStatus').classList.remove('flex');
+  }
+}
+
+// --- Export CSV ---
+function exportCSV() {
+  if (!allLeads.length) return;
+  const rows = [['Name','Category','Score','Phone','Email','Website','Address','City'].join(',')];
+  allLeads.forEach(b => {
+    rows.push([
+      q(b.name), q(b.category), q(b._score),
+      q(b.contact?.phone), q(b.contact?.email), q(b.contact?.website),
+      q(b.address?.street), q(b.address?.city)
+    ].join(','));
+  });
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `leads_${searchNiche}_${searchLocation}_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// --- Helpers ---
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
+function enc(s) { return encodeURIComponent(s || ''); }
+function esc(s) { const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function q(s) { return `"${(s||'').toString().replace(/"/g,'""')}"`; }
+</script>
 </body>
 </html>
