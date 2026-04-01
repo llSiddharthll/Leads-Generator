@@ -6,9 +6,13 @@ from typing import List, Dict, Optional, Set
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
+    "https://z.overpass-api.de/api/interpreter",
+]
 REQUEST_TIMEOUT = 45
-MAX_RETRIES = 2
+MAX_RETRIES = 1
 
 # Comprehensive niche → OSM tag mapping
 # Each niche maps to a list of (tag_key, tag_value) pairs to search
@@ -205,24 +209,20 @@ def deduplicate(businesses: List[Business]) -> List[Business]:
     return unique
 
 
-def make_request(query: str, retry: int = 0) -> Dict:
-    try:
-        resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=REQUEST_TIMEOUT,
-                             headers={'User-Agent': 'CreativeMonkLeadEngine/2.0'})
-        resp.raise_for_status()
-        return resp.json()
-    except requests.exceptions.Timeout:
-        if retry < MAX_RETRIES:
-            time.sleep(2 ** retry)
-            return make_request(query, retry + 1)
-        return {"elements": []}
-    except requests.exceptions.HTTPError:
-        if retry < MAX_RETRIES:
-            time.sleep(10 * (retry + 1))
-            return make_request(query, retry + 1)
-        return {"elements": []}
-    except Exception:
-        return {"elements": []}
+def make_request(query: str) -> Dict:
+    """Try multiple Overpass mirrors for reliability."""
+    for url in OVERPASS_URLS:
+        try:
+            resp = requests.post(url, data={"data": query}, timeout=REQUEST_TIMEOUT,
+                                 headers={'User-Agent': 'CreativeMonkLeadEngine/2.0'})
+            if resp.status_code == 200:
+                data = resp.json()
+                if "elements" in data:
+                    return data
+        except Exception:
+            pass
+        time.sleep(1)
+    return {"elements": []}
 
 
 def _build_tag_query(tags: list, radius_m: int, lat: float, lon: float, node_only: bool = False) -> str:
