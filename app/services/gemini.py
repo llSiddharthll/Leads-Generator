@@ -3,7 +3,8 @@ import json
 from typing import Optional
 
 GEMINI_API_KEY = "AIzaSyAkrhQIBoUHkXfpPjQdXN3aiGzp3EAUlSo"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+GEMINI_MODELS = ["gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-2.0-flash"]
 
 CREATIVE_MONK_CONTEXT = """You are an AI assistant for Creative Monk (The Creative Monk), a digital marketing agency based in Zirakpur, Punjab, India.
 
@@ -28,7 +29,7 @@ Tone: Professional but friendly, confident, results-focused. Use Indian business
 
 
 def _call_gemini(prompt: str, max_tokens: int = 1024) -> Optional[str]:
-    """Make a request to Gemini API."""
+    """Make a request to Gemini API with model fallback."""
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -37,13 +38,18 @@ def _call_gemini(prompt: str, max_tokens: int = 1024) -> Optional[str]:
         },
     }
 
-    try:
-        resp = requests.post(GEMINI_URL, json=payload, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
-        return None
+    for model in GEMINI_MODELS:
+        try:
+            url = f"{GEMINI_BASE}/{model}:generateContent?key={GEMINI_API_KEY}"
+            resp = requests.post(url, json=payload, timeout=30)
+            if resp.status_code == 429:
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception:
+            continue
+    return None
 
 
 def analyze_lead(name: str, category: str, website_url: Optional[str] = None,
