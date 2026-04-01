@@ -207,7 +207,7 @@ def deduplicate(businesses: List[Business]) -> List[Business]:
 
 def make_request(query: str, retry: int = 0) -> Dict:
     try:
-        resp = requests.post(OVERPASS_URL, data=query, timeout=REQUEST_TIMEOUT,
+        resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=REQUEST_TIMEOUT,
                              headers={'User-Agent': 'CreativeMonkLeadEngine/2.0'})
         resp.raise_for_status()
         return resp.json()
