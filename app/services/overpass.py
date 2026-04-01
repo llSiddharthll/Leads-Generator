@@ -225,11 +225,12 @@ def make_request(query: str, retry: int = 0) -> Dict:
         return {"elements": []}
 
 
-def _build_tag_query(tags: list, radius_m: int, lat: float, lon: float) -> str:
+def _build_tag_query(tags: list, radius_m: int, lat: float, lon: float, node_only: bool = False) -> str:
     """Build Overpass query lines for a list of (key, value) tag pairs."""
     lines = []
+    elems = ["node"] if node_only else ["node", "way", "relation"]
     for key, val in tags:
-        for elem in ["node", "way", "relation"]:
+        for elem in elems:
             lines.append(f'{elem}["{key}"="{val}"](around:{radius_m},{lat},{lon});')
     return "\n      ".join(lines)
 
@@ -317,8 +318,12 @@ def get_businesses(lat: float, lon: float, radius_km: float, niche: str) -> List
             ("craft", niche_clean), ("sport", niche_clean),
         ]
 
-    tag_query_lines = _build_tag_query(tags, radius_m, lat, lon)
-    tag_query = f"""[out:json][timeout:60];({tag_query_lines});out center tags;"""
+    # For large radii, only use node search (ways/relations are slow for wide areas)
+    if radius_m > 15000:
+        tag_query_lines = _build_tag_query(tags[:4], radius_m, lat, lon, node_only=True)
+    else:
+        tag_query_lines = _build_tag_query(tags, radius_m, lat, lon)
+    tag_query = f"""[out:json][timeout:45];({tag_query_lines});out center tags;"""
     data = make_request(tag_query)
     for elem in data.get("elements", []):
         b = _parse_element(elem, niche_clean)
@@ -326,12 +331,13 @@ def get_businesses(lat: float, lon: float, radius_km: float, niche: str) -> List
             raw.append(b)
 
     # Strategy 2: Name-based search (broader, slower)
-    # Use smaller radius for name search to keep it fast, or skip if tag search found plenty
+    # Only run if tag search found few results, and use tight radius + only first 3 keywords
     name_keywords = NICHE_NAME_KEYWORDS.get(niche_clean, [niche_clean])
-    name_radius = min(radius_m, 20000)  # Cap name search at 20km to avoid Overpass timeout
-    if len(raw) < 50:  # Only do name search if tag search found fewer than 50
-        name_query_lines = _build_name_query(name_keywords, name_radius, lat, lon)
-        name_query = f"""[out:json][timeout:45];({name_query_lines});out center tags;"""
+    name_radius = min(radius_m, 10000)  # Cap at 10km for name search
+    if len(raw) < 30:
+        top_keywords = name_keywords[:3]  # Limit keywords to keep query fast
+        name_query_lines = _build_name_query(top_keywords, name_radius, lat, lon)
+        name_query = f"""[out:json][timeout:30];({name_query_lines});out center tags;"""
         data2 = make_request(name_query)
         for elem in data2.get("elements", []):
             b = _parse_element(elem, niche_clean)
