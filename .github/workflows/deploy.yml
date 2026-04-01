@@ -30,7 +30,7 @@ jobs:
       - name: Verify deployment health
         run: |
           for i in 1 2 3 4 5; do
-            STATUS=$(curl -sf http://${{ secrets.SERVER_HOST }}:80/health 2>/dev/null || echo "failed")
+            STATUS=$(curl -sf http://${{ secrets.SERVER_HOST }}/health 2>/dev/null || echo "failed")
             if echo "$STATUS" | grep -q '"ok"'; then
               echo "Health check passed: $STATUS"
               exit 0
