@@ -18,6 +18,9 @@ jobs:
             cd /var/www/Leads-Generator
             git pull origin main
             ./venv/bin/pip install -r requirements.txt --quiet
+            # Ensure GEMINI_API_KEY is in the systemd service
+            sed -i "s|Environment=GEMINI_API_KEY=.*|Environment=GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}|" /etc/systemd/system/leads-generator.service
+            systemctl daemon-reload
             systemctl restart leads-generator
             sleep 3
             curl -sf http://127.0.0.1:8001/health || (echo "Health check failed!" && exit 1)

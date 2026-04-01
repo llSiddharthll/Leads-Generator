@@ -1,8 +1,9 @@
+import os
 import requests
 import json
 from typing import Optional
 
-GEMINI_API_KEY = "AIzaSyAkrhQIBoUHkXfpPjQdXN3aiGzp3EAUlSo"
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_MODELS = ["gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-2.0-flash"]
 
