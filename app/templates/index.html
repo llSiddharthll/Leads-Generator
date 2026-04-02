@@ -13,7 +13,7 @@
         extend: {
           colors: {
             monk: { 50:'#fff7ed', 100:'#ffedd5', 200:'#fed7aa', 300:'#fdba74', 400:'#fb923c', 500:'#f97316', 600:'#ea580c', 700:'#c2410c', 800:'#9a3412', 900:'#7c2d12' },
-            dark: { 800:'#1a1a2e', 900:'#0f0f23' }
+            dark: { 700:'#1e1e3a', 800:'#1a1a2e', 900:'#0f0f23' }
           }
         }
       }
@@ -22,6 +22,8 @@
   <style>
     @keyframes fadeUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
     @keyframes pulse-border { 0%,100% { border-color: #f97316 } 50% { border-color: #fdba74 } }
+    @keyframes shimmer { 0% { background-position:200% 0 } 100% { background-position:-200% 0 } }
+    @keyframes scan { 0% { left:-30% } 100% { left:130% } }
     .fade-up { animation: fadeUp .35s ease-out both }
     .stagger-1 { animation-delay:.05s } .stagger-2 { animation-delay:.1s } .stagger-3 { animation-delay:.15s }
     .stagger-4 { animation-delay:.2s } .stagger-5 { animation-delay:.25s } .stagger-6 { animation-delay:.3s }
@@ -30,10 +32,12 @@
     .score-warm { background: linear-gradient(135deg, #ea580c, #f97316); color: white }
     .score-cold { background: linear-gradient(135deg, #6b7280, #9ca3af); color: white }
     .card-enter { animation: fadeUp .3s ease-out both }
-    .glass { background: rgba(255,255,255,.03); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.08) }
     .ai-shimmer { background: linear-gradient(90deg, transparent 0%, rgba(249,115,22,.08) 50%, transparent 100%); background-size: 200% 100%; animation: shimmer 2s linear infinite }
-    @keyframes shimmer { 0% { background-position:200% 0 } 100% { background-position:-200% 0 } }
+    .scan-bar { position:relative; overflow:hidden }
+    .scan-bar::after { content:''; position:absolute; top:0; width:30%; height:100%; background:linear-gradient(90deg,transparent,rgba(249,115,22,.15),transparent); animation: scan 1.5s ease-in-out infinite }
     ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-track { background:#1a1a2e } ::-webkit-scrollbar-thumb { background:#f97316; border-radius:3px }
+    .star { color: #fbbf24 }
+    .star-empty { color: #374151 }
   </style>
 </head>
 <body class="bg-dark-900 text-gray-100 min-h-screen">
@@ -65,27 +69,29 @@
       <div class="bg-dark-800 rounded-2xl border border-white/5 p-6 lg:p-8">
         <div class="mb-6">
           <h2 class="text-2xl font-bold text-white mb-1">Find Your Next Clients</h2>
-          <p class="text-gray-400 text-sm">Search businesses by industry and location — AI will score and prioritize leads for you</p>
+          <p class="text-gray-400 text-sm">Searches Google, DuckDuckGo Maps & business websites — AI scores and prioritizes leads</p>
         </div>
 
         <!-- Industry Chips -->
         <div class="mb-6">
           <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Popular Industries</p>
           <div class="flex flex-wrap gap-2" id="nicheChips">
-            <button data-niche="restaurant" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🍽️ Restaurants</button>
-            <button data-niche="cafe" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">☕ Cafes</button>
-            <button data-niche="hotel" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🏨 Hotels</button>
-            <button data-niche="beauty" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">💇 Salons & Spas</button>
-            <button data-niche="gym" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🏋️ Gyms & Fitness</button>
-            <button data-niche="clinic" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🏥 Clinics</button>
-            <button data-niche="dentist" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🦷 Dental</button>
-            <button data-niche="school" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🎓 Coaching</button>
-            <button data-niche="car" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🚗 Auto Dealers</button>
-            <button data-niche="clothes" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">👗 Boutiques</button>
-            <button data-niche="real_estate" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🏠 Real Estate</button>
-            <button data-niche="pet" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🐾 Pet Shops</button>
-            <button data-niche="photography" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">📸 Photography</button>
-            <button data-niche="supermarket" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">🛒 Supermarkets</button>
+            <button data-niche="restaurant" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Restaurants</button>
+            <button data-niche="cafe" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Cafes</button>
+            <button data-niche="hotel" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Hotels</button>
+            <button data-niche="salon" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Salons & Spas</button>
+            <button data-niche="gym" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Gyms</button>
+            <button data-niche="clinic" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Clinics</button>
+            <button data-niche="dentist" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Dental</button>
+            <button data-niche="coaching" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Coaching</button>
+            <button data-niche="car" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Auto Dealers</button>
+            <button data-niche="boutique" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Boutiques</button>
+            <button data-niche="real estate" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Real Estate</button>
+            <button data-niche="pet" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Pet Shops</button>
+            <button data-niche="photography" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Photography</button>
+            <button data-niche="supermarket" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Supermarkets</button>
+            <button data-niche="lawyer" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Lawyers</button>
+            <button data-niche="jewellery" class="niche-chip px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-gray-300 hover:bg-monk-500/20 hover:text-monk-400 border border-white/5 hover:border-monk-500/30 transition-all">Jewellery</button>
           </div>
         </div>
 
@@ -120,7 +126,12 @@
         <div class="absolute inset-0 rounded-full border-2 border-transparent border-t-monk-500 animate-spin"></div>
       </div>
       <p class="mt-6 text-lg font-medium text-white">Scanning businesses...</p>
-      <p class="mt-1 text-sm text-gray-500">Searching OpenStreetMap data in your area</p>
+      <div class="mt-3 w-72">
+        <div class="scan-bar h-1.5 rounded-full bg-dark-700 overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-monk-500 to-monk-600 rounded-full" style="width:100%"></div>
+        </div>
+      </div>
+      <p id="loaderStatus" class="mt-3 text-sm text-gray-500">Searching Google, DuckDuckGo Maps & crawling websites...</p>
     </div>
 
     <!-- Error -->
@@ -162,6 +173,9 @@
                 <span class="text-sm font-medium text-gray-300"><span id="coldCount">0</span> Cold</span>
               </div>
             </div>
+            <div class="hidden sm:flex items-center gap-3 text-xs text-gray-500">
+              <span id="sourceStats"></span>
+            </div>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <button id="aiSummaryBtn" onclick="runBulkSummary()" class="px-4 py-2 bg-gradient-to-r from-monk-500/20 to-monk-600/20 hover:from-monk-500/30 hover:to-monk-600/30 text-monk-400 border border-monk-500/30 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
@@ -169,6 +183,7 @@
             </button>
             <select id="sortSelect" onchange="sortAndRender()" class="px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-300 focus:outline-none focus:border-monk-500">
               <option value="score">Sort: Lead Score</option>
+              <option value="rating">Sort: Rating</option>
               <option value="name">Sort: Name A-Z</option>
               <option value="category">Sort: Category</option>
             </select>
@@ -231,7 +246,7 @@
   <footer class="border-t border-white/5 mt-12 py-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
       <p class="text-xs text-gray-600">Built by <a href="https://thecreativemonk.in" target="_blank" class="text-monk-500 hover:text-monk-400">Creative Monk</a> — Ignite Your Revenue Engine</p>
-      <p class="text-xs text-gray-600">Powered by AI <i class="fas fa-bolt text-monk-500 ml-1"></i></p>
+      <p class="text-xs text-gray-600">Powered by AI + Google + DuckDuckGo <i class="fas fa-bolt text-monk-500 ml-1"></i></p>
     </div>
   </footer>
 
@@ -243,46 +258,99 @@ const PAGE_SIZE = 12;
 let searchNiche = '';
 let searchLocation = '';
 
-// --- Lead Scoring (considers ALL services, not just websites) ---
+// ---------------------------------------------------------------------------
+// Lead Scoring
+// ---------------------------------------------------------------------------
 function scoreLead(b) {
-  const hasWebsite = !!b.contact?.website;
-  const hasPhone = !!b.contact?.phone;
-  const hasSocial = !!(b.contact?.facebook || b.contact?.instagram);
-  const hasEmail = !!b.contact?.email;
-  // Score: more gaps = hotter lead
+  const c = b.contact || {};
   let gaps = 0;
-  if (!hasWebsite) gaps += 3;     // Biggest gap
-  if (!hasSocial) gaps += 2;      // Needs social media
-  if (!hasPhone) gaps += 1;       // Can't even be contacted easily
-  if (!hasEmail) gaps += 1;       // No email presence
+  if (!c.website) gaps += 3;
+  if (!c.facebook && !c.instagram) gaps += 2;
+  if (!c.phone) gaps += 1;
+  if (!c.email) gaps += 1;
   if (gaps >= 5) return 'HOT';
   if (gaps >= 2) return 'WARM';
   return 'COLD';
 }
 
-function getServiceTags(b) {
-  const tags = [];
-  if (!b.contact?.website) tags.push({label: 'Needs Website', color: 'red'});
-  if (!b.contact?.facebook && !b.contact?.instagram) tags.push({label: 'Needs Social Media', color: 'orange'});
-  if (!b.contact?.phone) tags.push({label: 'No Phone Online', color: 'yellow'});
-  // Category-specific service suggestions
-  const cat = (b.category || '').toLowerCase();
-  if (['restaurant','cafe','bakery','hotel','food_court','fast_food'].some(c => cat.includes(c)))
-    tags.push({label: 'Food Photography', color: 'purple'});
-  if (['salon','beauty','spa','gym','fitness','boutique'].some(c => cat.includes(c)))
-    tags.push({label: 'Brand Shoot', color: 'pink'});
-  if (['clinic','dentist','hospital','doctor'].some(c => cat.includes(c)))
-    tags.push({label: 'Local SEO', color: 'blue'});
-  if (['real_estate','property','estate'].some(c => cat.includes(c)))
-    tags.push({label: 'Property Shoots', color: 'purple'});
-  if (['coaching','school','college','training'].some(c => cat.includes(c)))
-    tags.push({label: 'Lead Gen Ads', color: 'blue'});
-  return tags.slice(0, 4); // Max 4 tags
-}
-
 function scoreValue(s) { return s === 'HOT' ? 3 : s === 'WARM' ? 2 : 1; }
 
-// --- Niche Chips ---
+function getServiceTags(b) {
+  const tags = [];
+  const c = b.contact || {};
+  if (!c.website) tags.push({ label: 'Needs Website', color: 'red' });
+  if (!c.facebook && !c.instagram) tags.push({ label: 'Needs Social Media', color: 'orange' });
+  if (!c.phone) tags.push({ label: 'No Phone Online', color: 'yellow' });
+  if (!c.email) tags.push({ label: 'No Email Found', color: 'yellow' });
+  const cat = (b.category || '').toLowerCase();
+  if (['restaurant','cafe','bakery','hotel','food_court','fast_food','food'].some(k => cat.includes(k)))
+    tags.push({ label: 'Food Photography', color: 'purple' });
+  if (['salon','beauty','spa','gym','fitness','boutique'].some(k => cat.includes(k)))
+    tags.push({ label: 'Brand Shoot', color: 'pink' });
+  if (['clinic','dentist','hospital','doctor','healthcare'].some(k => cat.includes(k)))
+    tags.push({ label: 'Local SEO', color: 'blue' });
+  if (['real_estate','property','estate','real estate'].some(k => cat.includes(k)))
+    tags.push({ label: 'Property Shoots', color: 'purple' });
+  if (['coaching','school','college','training','education','academy'].some(k => cat.includes(k)))
+    tags.push({ label: 'Lead Gen Ads', color: 'blue' });
+  return tags.slice(0, 5);
+}
+
+// ---------------------------------------------------------------------------
+// Stars renderer
+// ---------------------------------------------------------------------------
+function renderStars(rating) {
+  if (!rating) return '';
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.3;
+  let html = '';
+  for (let i = 0; i < 5; i++) {
+    if (i < full) html += '<i class="fas fa-star star text-xs"></i>';
+    else if (i === full && half) html += '<i class="fas fa-star-half-alt star text-xs"></i>';
+    else html += '<i class="far fa-star star-empty text-xs"></i>';
+  }
+  return html;
+}
+
+// ---------------------------------------------------------------------------
+// Hours formatter
+// ---------------------------------------------------------------------------
+function formatHours(hours) {
+  if (!hours) return '';
+  if (typeof hours === 'string') return hours;
+  if (typeof hours !== 'object') return '';
+
+  // webscout hours: { "Mon": "09:00-18:00", ..., "is_open": true }
+  const isOpen = hours.is_open;
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const today = days[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  const todayHours = hours[today] || hours[today?.toLowerCase()];
+
+  let badge = '';
+  if (isOpen === true) badge = '<span class="text-emerald-400 text-[10px] font-bold">OPEN NOW</span>';
+  else if (isOpen === false) badge = '<span class="text-red-400 text-[10px] font-bold">CLOSED</span>';
+
+  let time = todayHours ? `<span class="text-gray-400 text-xs ml-1">${esc(String(todayHours))}</span>` : '';
+  return badge + time;
+}
+
+// ---------------------------------------------------------------------------
+// Social icons builder
+// ---------------------------------------------------------------------------
+function socialIcons(c) {
+  if (!c) return '';
+  const icons = [];
+  if (c.facebook) icons.push(`<a href="${c.facebook}" target="_blank" title="Facebook" class="text-blue-400 hover:text-blue-300 transition-colors"><i class="fab fa-facebook text-sm"></i></a>`);
+  if (c.instagram) icons.push(`<a href="${c.instagram}" target="_blank" title="Instagram" class="text-pink-400 hover:text-pink-300 transition-colors"><i class="fab fa-instagram text-sm"></i></a>`);
+  if (c.twitter) icons.push(`<a href="${c.twitter}" target="_blank" title="Twitter/X" class="text-gray-400 hover:text-white transition-colors"><i class="fab fa-x-twitter text-sm"></i></a>`);
+  if (c.linkedin) icons.push(`<a href="${c.linkedin}" target="_blank" title="LinkedIn" class="text-blue-300 hover:text-blue-200 transition-colors"><i class="fab fa-linkedin text-sm"></i></a>`);
+  if (c.youtube) icons.push(`<a href="${c.youtube}" target="_blank" title="YouTube" class="text-red-400 hover:text-red-300 transition-colors"><i class="fab fa-youtube text-sm"></i></a>`);
+  return icons.length ? `<div class="flex items-center gap-2.5">${icons.join('')}</div>` : '';
+}
+
+// ---------------------------------------------------------------------------
+// Niche Chips
+// ---------------------------------------------------------------------------
 document.querySelectorAll('.niche-chip').forEach(chip => {
   chip.addEventListener('click', () => {
     document.getElementById('niche').value = chip.dataset.niche;
@@ -291,7 +359,9 @@ document.querySelectorAll('.niche-chip').forEach(chip => {
   });
 });
 
-// --- Search ---
+// ---------------------------------------------------------------------------
+// Search
+// ---------------------------------------------------------------------------
 document.getElementById('searchForm').addEventListener('submit', async e => {
   e.preventDefault();
   const niche = document.getElementById('niche').value.trim();
@@ -334,12 +404,15 @@ document.getElementById('searchForm').addEventListener('submit', async e => {
   }
 });
 
-// --- Sorting & Rendering ---
+// ---------------------------------------------------------------------------
+// Sorting & Rendering
+// ---------------------------------------------------------------------------
 function sortAndRender() {
   const sort = document.getElementById('sortSelect').value;
   if (sort === 'score') allLeads.sort((a,b) => scoreValue(b._score) - scoreValue(a._score));
   else if (sort === 'name') allLeads.sort((a,b) => (a.name||'').localeCompare(b.name||''));
   else if (sort === 'category') allLeads.sort((a,b) => (a.category||'').localeCompare(b.category||''));
+  else if (sort === 'rating') allLeads.sort((a,b) => (b.rating||0) - (a.rating||0));
   renderCards();
 }
 
@@ -351,10 +424,16 @@ function renderCards() {
 
   page.forEach((b, i) => {
     const score = b._score;
-    const hasWebsite = !!b.contact?.website;
-    const hasPhone = !!b.contact?.phone;
-    const hasSocial = !!(b.contact?.facebook || b.contact?.instagram);
+    const c = b.contact || {};
+    const hasPhone = !!c.phone;
+    const hasWebsite = !!c.website;
     const addr = b.address ? [b.address.street, b.address.city].filter(Boolean).join(', ') : '';
+    const mapsQuery = b.latitude && b.longitude
+      ? `${b.latitude},${b.longitude}`
+      : enc(b.name + ' ' + (b.address?.city || searchLocation));
+    const mapsUrl = b.latitude && b.longitude
+      ? `https://www.google.com/maps?q=${b.latitude},${b.longitude}`
+      : `https://www.google.com/maps/search/${enc(b.name + ' ' + (b.address?.city || searchLocation))}`;
 
     const card = document.createElement('div');
     card.className = `card-enter stagger-${(i % 6) + 1} bg-dark-800 rounded-2xl border ${score === 'HOT' ? 'border-red-500/30 hot-pulse' : 'border-white/5'} p-5 flex flex-col`;
@@ -363,37 +442,52 @@ function renderCards() {
       <!-- Header -->
       <div class="flex items-start justify-between mb-3">
         <div class="flex-1 min-w-0 mr-3">
-          <h3 class="font-semibold text-white text-base truncate" title="${esc(b.name||'Unknown')}">${esc(b.name||'Unknown Business')}</h3>
-          <p class="text-xs text-gray-500 mt-0.5">${esc(b.category||'Business')}</p>
+          <h3 class="font-semibold text-white text-base truncate" title="${esc(b.name||'')}">${esc(b.name||'Unknown Business')}</h3>
+          <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+            <span class="text-xs text-gray-500">${esc(b.category||'Business')}</span>
+            ${b.rating ? `
+              <span class="flex items-center gap-1">
+                ${renderStars(b.rating)}
+                <span class="text-xs text-yellow-400 font-semibold ml-0.5">${b.rating}</span>
+                ${b.review_count ? `<span class="text-[10px] text-gray-500">(${b.review_count})</span>` : ''}
+              </span>` : ''}
+          </div>
         </div>
         <span class="score-${score.toLowerCase()} px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider flex-shrink-0">${score}</span>
       </div>
 
       <!-- Info -->
-      <div class="space-y-2 mb-4 flex-1">
-        ${hasPhone ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-phone text-emerald-400 w-4 text-center text-xs"></i><a href="tel:${b.contact.phone}" class="text-gray-300 hover:text-white transition-colors">${esc(b.contact.phone)}</a></div>` : `<div class="flex items-center gap-2 text-sm"><i class="fas fa-phone text-red-400/60 w-4 text-center text-xs"></i><span class="text-red-400/60 italic">No phone listed</span></div>`}
-        ${hasWebsite ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-globe text-blue-400 w-4 text-center text-xs"></i><a href="${b.contact.website}" target="_blank" class="text-blue-400 hover:text-blue-300 truncate transition-colors">${b.contact.website.replace(/^https?:\/\//,'').slice(0,30)}</a></div>` : `<div class="flex items-center gap-2 text-sm"><i class="fas fa-globe text-red-400/60 w-4 text-center text-xs"></i><span class="text-red-400/60 italic">No website</span></div>`}
-        ${addr ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-map-marker-alt text-monk-400 w-4 text-center text-xs"></i><span class="text-gray-400 truncate">${esc(addr)}</span></div>` : ''}
-        ${b.contact?.email ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-envelope text-purple-400 w-4 text-center text-xs"></i><a href="mailto:${b.contact.email}" class="text-gray-300 hover:text-white truncate transition-colors">${esc(b.contact.email)}</a></div>` : ''}
+      <div class="space-y-1.5 mb-3 flex-1">
+        ${hasPhone ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-phone text-emerald-400 w-4 text-center text-xs"></i><a href="tel:${c.phone}" class="text-gray-300 hover:text-white transition-colors">${esc(c.phone)}</a></div>` : `<div class="flex items-center gap-2 text-sm"><i class="fas fa-phone text-red-400/50 w-4 text-center text-xs"></i><span class="text-red-400/50 italic text-xs">No phone listed</span></div>`}
+        ${hasWebsite ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-globe text-blue-400 w-4 text-center text-xs"></i><a href="${c.website}" target="_blank" class="text-blue-400 hover:text-blue-300 truncate transition-colors text-xs">${c.website.replace(/^https?:\/\//,'').replace(/\/$/,'').slice(0,35)}</a></div>` : `<div class="flex items-center gap-2 text-sm"><i class="fas fa-globe text-red-400/50 w-4 text-center text-xs"></i><span class="text-red-400/50 italic text-xs">No website</span></div>`}
+        ${c.email ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-envelope text-purple-400 w-4 text-center text-xs"></i><a href="mailto:${c.email}" class="text-gray-300 hover:text-white truncate transition-colors text-xs">${esc(c.email)}</a></div>` : ''}
+        ${addr ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-map-marker-alt text-monk-400 w-4 text-center text-xs"></i><span class="text-gray-400 truncate text-xs">${esc(addr)}</span></div>` : ''}
+        ${formatHours(b.opening_hours) ? `<div class="flex items-center gap-2 text-sm"><i class="fas fa-clock text-gray-500 w-4 text-center text-xs"></i>${formatHours(b.opening_hours)}</div>` : ''}
       </div>
 
+      <!-- Social Icons -->
+      ${socialIcons(c) ? `<div class="mb-3 pb-2 border-b border-white/5">${socialIcons(c)}</div>` : ''}
+
       <!-- Service Opportunity Tags -->
-      <div class="flex flex-wrap gap-1.5 mb-4">
+      <div class="flex flex-wrap gap-1.5 mb-3">
         ${getServiceTags(b).map(t => {
-          const colors = {red:'red',orange:'orange',yellow:'yellow',purple:'purple',pink:'pink',blue:'blue',gray:'gray'};
-          const c = colors[t.color] || 'gray';
-          return `<span class="px-2 py-0.5 bg-${c}-500/10 text-${c}-400 rounded-md text-[10px] font-medium">${t.label}</span>`;
+          const colors = {red:'red',orange:'orange',yellow:'yellow',purple:'purple',pink:'pink',blue:'blue'};
+          const cl = colors[t.color] || 'gray';
+          return `<span class="px-2 py-0.5 bg-${cl}-500/10 text-${cl}-400 rounded-md text-[10px] font-medium">${t.label}</span>`;
         }).join('')}
-        ${!getServiceTags(b).length ? '<span class="px-2 py-0.5 bg-gray-500/10 text-gray-400 rounded-md text-[10px] font-medium">Has Presence</span>' : ''}
+        ${!getServiceTags(b).length ? '<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-md text-[10px] font-medium">Has Digital Presence</span>' : ''}
       </div>
+
+      <!-- Source badge -->
+      ${b.source ? `<div class="mb-3"><span class="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-600 uppercase tracking-wider">${esc(b.source)}</span></div>` : ''}
 
       <!-- Actions -->
       <div class="flex items-center gap-2 pt-3 border-t border-white/5">
-        ${hasPhone ? `<a href="https://wa.me/${(b.contact.phone||'').replace(/[^0-9]/g,'')}" target="_blank" class="flex-1 px-3 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium text-center transition-all" title="Open WhatsApp"><i class="fab fa-whatsapp mr-1"></i>WhatsApp</a>` : ''}
-        ${hasPhone ? `<a href="tel:${b.contact.phone}" class="flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium text-center transition-all" title="Call directly"><i class="fas fa-phone mr-1"></i>Call</a>` : ''}
-        <a href="https://www.google.com/maps/search/${enc(b.name + ' ' + (b.address?.city || searchLocation))}" target="_blank" class="flex-1 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 rounded-lg text-xs font-medium text-center transition-all" title="Find on Google Maps"><i class="fas fa-map-marker-alt mr-1"></i>Maps</a>
-        ${hasWebsite ? `<a href="${b.contact.website}" target="_blank" class="flex-1 px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-medium text-center transition-all" title="Visit website"><i class="fas fa-globe mr-1"></i>Site</a>` : ''}
-        <button onclick='generatePitch(${JSON.stringify(b).replace(/'/g,"&#39;")})' class="flex-1 px-3 py-2 bg-monk-500/10 hover:bg-monk-500/20 text-monk-400 rounded-lg text-xs font-medium text-center transition-all" title="Generate AI outreach pitch"><i class="fas fa-robot mr-1"></i>Pitch</button>
+        ${hasPhone ? `<a href="https://wa.me/${(c.phone||'').replace(/[^0-9]/g,'')}" target="_blank" class="flex-1 px-2 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium text-center transition-all" title="WhatsApp"><i class="fab fa-whatsapp mr-1"></i>WhatsApp</a>` : ''}
+        ${hasPhone ? `<a href="tel:${c.phone}" class="flex-1 px-2 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg text-xs font-medium text-center transition-all" title="Call"><i class="fas fa-phone mr-1"></i>Call</a>` : ''}
+        <a href="${mapsUrl}" target="_blank" class="flex-1 px-2 py-2 bg-white/5 hover:bg-white/10 text-gray-400 rounded-lg text-xs font-medium text-center transition-all" title="Google Maps"><i class="fas fa-map-marker-alt mr-1"></i>Maps</a>
+        ${hasWebsite ? `<a href="${c.website}" target="_blank" class="flex-1 px-2 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 rounded-lg text-xs font-medium text-center transition-all" title="Website"><i class="fas fa-globe mr-1"></i>Site</a>` : ''}
+        <button onclick='generatePitch(${JSON.stringify(b).replace(/'/g,"&#39;")})' class="flex-1 px-2 py-2 bg-monk-500/10 hover:bg-monk-500/20 text-monk-400 rounded-lg text-xs font-medium text-center transition-all" title="AI Pitch"><i class="fas fa-robot mr-1"></i>Pitch</button>
       </div>
     `;
     grid.appendChild(card);
@@ -402,15 +496,25 @@ function renderCards() {
   updatePagination();
 }
 
-// --- Counts ---
+// ---------------------------------------------------------------------------
+// Counts
+// ---------------------------------------------------------------------------
 function updateCounts() {
   document.getElementById('totalCount').textContent = allLeads.length;
   document.getElementById('hotCount').textContent = allLeads.filter(l => l._score === 'HOT').length;
   document.getElementById('warmCount').textContent = allLeads.filter(l => l._score === 'WARM').length;
   document.getElementById('coldCount').textContent = allLeads.filter(l => l._score === 'COLD').length;
+
+  // Source stats
+  const sources = {};
+  allLeads.forEach(l => { const s = l.source || 'unknown'; sources[s] = (sources[s]||0) + 1; });
+  const parts = Object.entries(sources).map(([k,v]) => `${k}: ${v}`);
+  document.getElementById('sourceStats').textContent = parts.join(' | ');
 }
 
-// --- Pagination ---
+// ---------------------------------------------------------------------------
+// Pagination
+// ---------------------------------------------------------------------------
 function updatePagination() {
   const total = Math.ceil(allLeads.length / PAGE_SIZE);
   if (total <= 1) { hide('pagination'); return; }
@@ -426,7 +530,9 @@ function changePage(dir) {
   window.scrollTo({ top: document.getElementById('resultsSection').offsetTop - 80, behavior: 'smooth' });
 }
 
-// --- AI: Generate Pitch ---
+// ---------------------------------------------------------------------------
+// AI: Generate Pitch
+// ---------------------------------------------------------------------------
 async function generatePitch(b) {
   const modal = document.getElementById('pitchModal');
   const content = document.getElementById('pitchModalContent');
@@ -492,7 +598,7 @@ async function generatePitch(b) {
       <div class="bg-monk-500/5 border border-monk-500/20 rounded-xl p-4">
         <div class="flex items-center gap-2 mb-3">
           <i class="fas fa-bullseye text-monk-400"></i>
-          <h4 class="font-semibold text-monk-300 text-sm">Recommended Services to Pitch</h4>
+          <h4 class="font-semibold text-monk-300 text-sm">Recommended Services</h4>
         </div>
         <div class="flex flex-wrap gap-2">
           ${data.recommended_services.map(s => `<span class="px-3 py-1 bg-monk-500/10 text-monk-400 rounded-lg text-xs font-medium">${esc(s)}</span>`).join('')}
@@ -537,12 +643,10 @@ function closePitchModal() {
   document.getElementById('pitchModal').classList.add('hidden');
 }
 
-// Close modal on backdrop click
 document.getElementById('pitchModal').addEventListener('click', e => {
   if (e.target === e.currentTarget) closePitchModal();
 });
 
-// Close modal on Escape key
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closePitchModal();
 });
@@ -556,7 +660,9 @@ function copyText(btn, type) {
   });
 }
 
-// --- AI: Bulk Summary ---
+// ---------------------------------------------------------------------------
+// AI: Bulk Summary
+// ---------------------------------------------------------------------------
 async function runBulkSummary() {
   const btn = document.getElementById('aiSummaryBtn');
   const panel = document.getElementById('aiSummaryPanel');
@@ -579,12 +685,12 @@ async function runBulkSummary() {
 
     content.innerHTML = `
       <p class="text-gray-200 leading-relaxed">${esc(data.summary || '')}</p>
-      ${data.strategy ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">📋 Recommended Strategy</p><p class="text-sm text-gray-300">${esc(data.strategy)}</p></div>` : ''}
-      ${data.top_pitch_angle ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">🎯 Best Pitch Angle</p><p class="text-sm text-gray-300">${esc(data.top_pitch_angle)}</p></div>` : ''}
-      ${data.quick_wins ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">⚡ Quick Wins</p><p class="text-sm text-gray-300">${esc(data.quick_wins)}</p></div>` : ''}
-      ${data.estimated_conversion ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">📊 Conversion Estimate</p><p class="text-sm text-gray-300">${esc(data.estimated_conversion)}</p></div>` : ''}
-      ${data.services_to_push?.length ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-2">🛠️ Services to Push</p><div class="space-y-1">${data.services_to_push.map(s => `<p class="text-sm text-gray-300">• ${esc(s)}</p>`).join('')}</div></div>` : ''}
-      ${data.market_insight ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">💡 Market Insight</p><p class="text-sm text-gray-300">${esc(data.market_insight)}</p></div>` : ''}
+      ${data.strategy ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">Recommended Strategy</p><p class="text-sm text-gray-300">${esc(data.strategy)}</p></div>` : ''}
+      ${data.top_pitch_angle ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">Best Pitch Angle</p><p class="text-sm text-gray-300">${esc(data.top_pitch_angle)}</p></div>` : ''}
+      ${data.quick_wins ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">Quick Wins</p><p class="text-sm text-gray-300">${esc(data.quick_wins)}</p></div>` : ''}
+      ${data.estimated_conversion ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">Conversion Estimate</p><p class="text-sm text-gray-300">${esc(data.estimated_conversion)}</p></div>` : ''}
+      ${data.services_to_push?.length ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-2">Services to Push</p><div class="space-y-1">${data.services_to_push.map(s => `<p class="text-sm text-gray-300">- ${esc(s)}</p>`).join('')}</div></div>` : ''}
+      ${data.market_insight ? `<div class="bg-white/5 rounded-xl p-3"><p class="text-xs font-semibold text-monk-400 mb-1">Market Insight</p><p class="text-sm text-gray-300">${esc(data.market_insight)}</p></div>` : ''}
     `;
   } catch (err) {
     content.innerHTML = `<p class="text-red-400">Analysis failed: ${esc(err.message)}</p>`;
@@ -596,18 +702,24 @@ async function runBulkSummary() {
   }
 }
 
-// --- Export CSV ---
+// ---------------------------------------------------------------------------
+// Export CSV
+// ---------------------------------------------------------------------------
 function exportCSV() {
   if (!allLeads.length) return;
-  const rows = [['Name','Category','Lead Score','Phone','Email','Website','Facebook','Instagram','Address','City','Google Maps','Opening Hours'].join(',')];
+  const rows = [['Name','Category','Lead Score','Rating','Reviews','Phone','Email','Website','Facebook','Instagram','Twitter','LinkedIn','Address','City','Google Maps','Opening Hours','Source','Description'].join(',')];
   allLeads.forEach(b => {
-    const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(b.name + ' ' + (b.address?.city || searchLocation))}`;
+    const c = b.contact || {};
+    const mapsUrl = b.latitude && b.longitude
+      ? `https://www.google.com/maps?q=${b.latitude},${b.longitude}`
+      : `https://www.google.com/maps/search/${encodeURIComponent(b.name + ' ' + (b.address?.city || searchLocation))}`;
+    const hours = b.opening_hours ? (typeof b.opening_hours === 'string' ? b.opening_hours : JSON.stringify(b.opening_hours)) : '';
     rows.push([
-      q(b.name), q(b.category), q(b._score),
-      q(b.contact?.phone), q(b.contact?.email), q(b.contact?.website),
-      q(b.contact?.facebook), q(b.contact?.instagram),
+      q(b.name), q(b.category), q(b._score), q(b.rating), q(b.review_count),
+      q(c.phone), q(c.email), q(c.website), q(c.facebook), q(c.instagram),
+      q(c.twitter), q(c.linkedin),
       q(b.address?.street), q(b.address?.city),
-      q(mapsUrl), q(b.opening_hours)
+      q(mapsUrl), q(hours), q(b.source), q(b.description)
     ].join(','));
   });
   const blob = new Blob(['\ufeff' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
@@ -618,7 +730,9 @@ function exportCSV() {
   URL.revokeObjectURL(a.href);
 }
 
-// --- Helpers ---
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 function show(id) { document.getElementById(id).classList.remove('hidden'); }
 function hide(id) { document.getElementById(id).classList.add('hidden'); }
 function enc(s) { return encodeURIComponent(s || ''); }

@@ -1,19 +1,20 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from fastapi.requests import Request
 from pydantic import BaseModel
 from typing import Optional
 
 from app.services.geocode import get_coordinates
-from app.services.overpass import get_businesses
+from app.services.search_engine import get_businesses
 from app.services import gemini
 
 app = FastAPI(title="Creative Monk Lead Engine")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+
+_INDEX_HTML = (Path(__file__).resolve().parent / "templates" / "index.html").read_text()
 
 
 @app.get("/health")
@@ -22,8 +23,8 @@ def health_check():
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+def home():
+    return HTMLResponse(_INDEX_HTML)
 
 
 @app.get("/find-businesses")
@@ -37,7 +38,7 @@ def find_businesses(
         return {"count": 0, "businesses": []}
 
     lat, lon = coords
-    businesses = get_businesses(lat, lon, radius_km, niche)
+    businesses = get_businesses(lat, lon, radius_km, niche, location=location)
 
     return {
         "count": len(businesses),
