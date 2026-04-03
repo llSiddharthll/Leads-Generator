@@ -439,79 +439,111 @@ def _merge_lists(*lists: List[Business]) -> List[Business]:
 # ---------------------------------------------------------------------------
 
 def _enrich_single(business: Business, location: str) -> Business:
-    """Search Google for a single business to find its website and phone."""
-    if business.website and business.phone:
-        return business  # already has both
+    """Search DDG Maps for this specific business to find phone/website/address."""
+    if business.website and business.phone and business.email:
+        return business  # already has everything
 
-    query = f"{business.name} {location} contact"
-    try:
-        resp = requests.get(
-            "https://www.google.com/search",
-            params={"q": query, "hl": "en", "num": "5"},
-            headers=_GOOGLE_HEADERS,
-            timeout=10,
-        )
-        if resp.status_code != 200:
-            return business
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-        page_text = soup.get_text()
-
-        # Extract phone from page
-        if not business.phone:
-            phone_m = re.search(r"(\+91[\s\-]?\d[\d\s\-]{8,}\d)", page_text)
-            if not phone_m:
-                phone_m = re.search(r"\b(0\d{2,4}[\s\-]\d{6,8})\b", page_text)
-            if not phone_m:
-                phone_m = re.search(r"\b(\d{10})\b", page_text)
-            if phone_m:
-                business.phone = _normalize_phone(phone_m.group(1))
-
-        # Extract website from search results (skip directories)
-        if not business.website:
-            skip_domains = {
-                "justdial", "sulekha", "yelp", "tripadvisor", "zomato", "swiggy",
-                "indiamart", "tradeindia", "yellowpages", "facebook", "instagram",
-                "twitter", "linkedin", "youtube", "wikipedia", "google", "bing",
-                "quora", "reddit", "pinterest", "mapquest",
-            }
-            for a_tag in soup.select("a[href]"):
-                href = a_tag.get("href", "")
-                if not href.startswith("http"):
+    # Strategy 1: DDG Maps lookup by exact business name
+    if HAS_WEBSCOUT:
+        try:
+            ddg = DuckDuckGoSearch()
+            results = ddg.maps(business.name, place=location, max_results=3)
+            for r in results:
+                r_name = _norm_key(r.get("title", ""))
+                b_name = _norm_key(business.name)
+                # Match: exact or substring
+                if not r_name or (r_name not in b_name and b_name not in r_name):
                     continue
-                domain = urlparse(href).netloc.lower().replace("www.", "")
-                if any(s in domain for s in skip_domains):
-                    continue
-                if domain and "." in domain:
-                    business.website = _normalize_url(href)
-                    break
 
-        # Extract email
-        if not business.email:
-            email_m = re.search(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", page_text)
-            if email_m:
-                email = email_m.group(0).lower()
-                if not any(s in email for s in ["noreply", "example", "test@", "wix", "squarespace"]):
-                    business.email = email
+                if not business.phone and r.get("phone"):
+                    business.phone = _normalize_phone(r["phone"])
+                if not business.website and r.get("url"):
+                    business.website = _normalize_url(r["url"])
+                if not business.address and r.get("address"):
+                    addr = r["address"] or ""
+                    if not addr.startswith("·") and len(addr) > 5:
+                        business.address = addr
+                if not business.latitude and r.get("latitude"):
+                    business.latitude = r.get("latitude")
+                    business.longitude = r.get("longitude")
+                if not business.facebook and r.get("facebook"):
+                    business.facebook = r["facebook"]
+                if not business.instagram and r.get("instagram"):
+                    business.instagram = r["instagram"]
+                if not business.twitter and r.get("twitter"):
+                    business.twitter = r["twitter"]
+                if not business.opening_hours and isinstance(r.get("hours"), dict):
+                    business.opening_hours = r["hours"]
+                break
+        except Exception as e:
+            logger.debug("DDG enrich failed for %s: %s", business.name, e)
 
-    except Exception as e:
-        logger.debug("Enrich failed for %s: %s", business.name, e)
+    # Strategy 2: Google search as fallback (for website/email)
+    if not business.website or not business.email:
+        try:
+            resp = requests.get(
+                "https://www.google.com/search",
+                params={"q": f"{business.name} {location}", "hl": "en", "num": "5"},
+                headers=_GOOGLE_HEADERS,
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, "html.parser")
+                page_text = soup.get_text()
+
+                # Phone from Google page text
+                if not business.phone:
+                    phone_m = re.search(r"(\+91[\s\-]?\d[\d\s\-]{8,}\d)", page_text)
+                    if not phone_m:
+                        phone_m = re.search(r"\b(0\d{2,4}[\s\-]\d{6,8})\b", page_text)
+                    if phone_m:
+                        business.phone = _normalize_phone(phone_m.group(1))
+
+                # Website from search result links
+                if not business.website:
+                    skip_domains = {
+                        "justdial", "sulekha", "yelp", "tripadvisor", "zomato", "swiggy",
+                        "indiamart", "tradeindia", "yellowpages", "facebook", "instagram",
+                        "twitter", "linkedin", "youtube", "wikipedia", "google", "bing",
+                        "quora", "reddit", "pinterest", "mapquest",
+                    }
+                    for a_tag in soup.select("a[href]"):
+                        href = a_tag.get("href", "")
+                        if not href.startswith("http"):
+                            continue
+                        domain = urlparse(href).netloc.lower().replace("www.", "")
+                        if any(s in domain for s in skip_domains):
+                            continue
+                        if domain and "." in domain:
+                            business.website = _normalize_url(href)
+                            break
+
+                # Email
+                if not business.email:
+                    email_m = re.search(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", page_text)
+                    if email_m:
+                        email = email_m.group(0).lower()
+                        if not any(s in email for s in ["noreply", "example", "test@", "wix", "squarespace"]):
+                            business.email = email
+        except Exception as e:
+            logger.debug("Google enrich failed for %s: %s", business.name, e)
 
     return business
 
 
-def _enrich_missing(businesses: List[Business], location: str, max_workers: int = 5) -> List[Business]:
-    """For businesses missing website or phone, search Google to find them."""
-    to_enrich = [b for b in businesses if not b.website or not b.phone]
+def _enrich_missing(businesses: List[Business], location: str, max_workers: int = 4) -> List[Business]:
+    """For businesses missing website or phone, look them up individually."""
+    to_enrich = [b for b in businesses if not b.phone or not b.website]
     if not to_enrich:
         return businesses
 
-    # Limit to avoid rate-limiting (max 30 enrichment searches)
-    to_enrich = to_enrich[:30]
+    # Enrich all leads missing data (cap at 40 to avoid slowness)
+    to_enrich = to_enrich[:40]
+    logger.info("Enriching %d businesses missing phone/website", len(to_enrich))
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(_enrich_single, b, location): b for b in to_enrich}
-        for future in as_completed(futures, timeout=60):
+        for future in as_completed(futures, timeout=90):
             try:
                 future.result()
             except Exception:
