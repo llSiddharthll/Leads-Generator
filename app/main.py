@@ -38,19 +38,18 @@ def debug_check():
     except Exception as e:
         checks["webscout_error"] = str(e)
     try:
-        from webscout import DuckDuckGoSearch
-        checks["ddg_import"] = True
-    except Exception as e:
-        checks["ddg_import_error"] = str(e)
-    try:
-        import beautifulsoup4
+        from bs4 import BeautifulSoup
         checks["bs4"] = True
-    except ImportError:
-        try:
-            from bs4 import BeautifulSoup
-            checks["bs4"] = True
-        except Exception as e:
-            checks["bs4_error"] = str(e)
+    except Exception as e:
+        checks["bs4_error"] = str(e)
+
+    # Test geocoding
+    try:
+        coords = get_coordinates("Chandigarh")
+        checks["geocode_chandigarh"] = str(coords)
+    except Exception as e:
+        checks["geocode_error"] = str(e)
+
     return checks
 
 
