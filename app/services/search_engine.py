@@ -1,19 +1,21 @@
 """
-Lead Engine Search - Multi-source business discovery.
+Lead Engine Search - Multi-source business discovery with enrichment.
 
-Primary:   DuckDuckGo Maps via webscout (structured data, social, hours)
-Secondary: Google Local scraping (ratings, reviews, phone numbers)
-Tertiary:  Google Search scraping (catch stragglers)
-
-All free, no API keys required.
+Pipeline:
+1. DDG Maps (webscout) — structured data: phone, website, social, hours, coords
+2. Google Local (tbm=lcl) — ratings, reviews, address, category
+3. Merge — fuzzy name matching (handles accents, abbreviations)
+4. Enrich missing — for businesses still lacking website/phone, search Google
+5. Crawl websites — extract social links + emails from business websites
 """
 
 import hashlib
 import re
 import time
+import unicodedata
 import logging
-from typing import List, Dict, Optional, Set
-from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Set, Tuple
+from dataclasses import dataclass
 from urllib.parse import urlparse, quote_plus
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -22,7 +24,6 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-# --- webscout import (optional but recommended) ---
 try:
     from webscout import DuckDuckGoSearch
     HAS_WEBSCOUT = True
@@ -57,15 +58,6 @@ class Business:
     source: Optional[str] = None
     image: Optional[str] = None
     description: Optional[str] = None
-    place_id: Optional[str] = None
-
-    def hash_id(self) -> str:
-        parts = [
-            (self.name or "").lower().strip(),
-            re.sub(r"[^0-9]", "", self.phone or "")[-10:],
-            (self.address or "").lower().strip()[:40],
-        ]
-        return hashlib.md5("|".join(parts).encode()).hexdigest()
 
     def is_valid(self) -> bool:
         if not self.name:
@@ -77,37 +69,50 @@ class Business:
 
     def to_dict(self) -> Dict:
         contact: Dict[str, str] = {}
-        if self.phone:      contact["phone"] = self.phone
-        if self.website:    contact["website"] = self.website
-        if self.email:      contact["email"] = self.email
-        if self.facebook:   contact["facebook"] = self.facebook
-        if self.instagram:  contact["instagram"] = self.instagram
-        if self.twitter:    contact["twitter"] = self.twitter
-        if self.linkedin:   contact["linkedin"] = self.linkedin
-        if self.youtube:    contact["youtube"] = self.youtube
+        if self.phone:    contact["phone"] = self.phone
+        if self.website:  contact["website"] = self.website
+        if self.email:    contact["email"] = self.email
+        if self.facebook: contact["facebook"] = self.facebook
+        if self.instagram: contact["instagram"] = self.instagram
+        if self.twitter:  contact["twitter"] = self.twitter
+        if self.linkedin: contact["linkedin"] = self.linkedin
+        if self.youtube:  contact["youtube"] = self.youtube
 
         address: Dict[str, str] = {}
-        if self.address:    address["street"] = self.address
-        if self.city:       address["city"] = self.city
+        if self.address: address["street"] = self.address
+        if self.city:    address["city"] = self.city
 
         d: Dict = {"name": self.name}
-        if self.category:       d["category"] = self.category
-        if contact:             d["contact"] = contact
-        if address:             d["address"] = address
-        if self.latitude:       d["latitude"] = self.latitude
-        if self.longitude:      d["longitude"] = self.longitude
-        if self.rating:         d["rating"] = self.rating
-        if self.review_count:   d["review_count"] = self.review_count
-        if self.opening_hours:  d["opening_hours"] = self.opening_hours
-        if self.source:         d["source"] = self.source
-        if self.image:          d["image"] = self.image
-        if self.description:    d["description"] = self.description
+        if self.category:     d["category"] = self.category
+        if contact:           d["contact"] = contact
+        if address:           d["address"] = address
+        if self.latitude:     d["latitude"] = self.latitude
+        if self.longitude:    d["longitude"] = self.longitude
+        if self.rating:       d["rating"] = self.rating
+        if self.review_count: d["review_count"] = self.review_count
+        if self.opening_hours: d["opening_hours"] = self.opening_hours
+        if self.source:       d["source"] = self.source
+        if self.image:        d["image"] = self.image
+        if self.description:  d["description"] = self.description
         return d
 
 
 # ---------------------------------------------------------------------------
-# Normalisation helpers
+# Helpers
 # ---------------------------------------------------------------------------
+
+def _norm_key(name: str) -> str:
+    """Normalize a business name for fuzzy matching.
+    Strips accents, lowercases, removes punctuation/extra spaces."""
+    if not name:
+        return ""
+    # Decompose unicode, strip combining marks (accents)
+    nfkd = unicodedata.normalize("NFKD", name)
+    ascii_name = "".join(c for c in nfkd if not unicodedata.combining(c))
+    # Lowercase, strip punctuation except alphanumeric/space
+    cleaned = re.sub(r"[^a-z0-9 ]", "", ascii_name.lower())
+    return " ".join(cleaned.split())
+
 
 def _normalize_phone(phone: Optional[str]) -> Optional[str]:
     if not phone:
@@ -141,29 +146,20 @@ def _clean_name(name: Optional[str]) -> Optional[str]:
     return name.strip() or None
 
 
-# ---------------------------------------------------------------------------
-# Deduplication
-# ---------------------------------------------------------------------------
+_ADDR_RE = re.compile(
+    r"\b(?:road|rd|street|sector|sec|block|lane|nagar|colony|"
+    r"market|phase|plot|floor|near|opp|chowk|marg|path|avenue|ave|sco|scf|nh)\b",
+    re.I,
+)
 
-def _deduplicate(businesses: List[Business]) -> List[Business]:
-    seen_hashes: Set[str] = set()
-    seen_names: Set[str] = set()
-    unique: List[Business] = []
-
-    for b in businesses:
-        if not b.is_valid():
-            continue
-        h = b.hash_id()
-        if h in seen_hashes:
-            continue
-        name_key = (b.name or "").lower().strip()
-        if name_key in seen_names:
-            continue
-        seen_hashes.add(h)
-        seen_names.add(name_key)
-        unique.append(b)
-
-    return unique
+_GOOGLE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -172,23 +168,26 @@ def _deduplicate(businesses: List[Business]) -> List[Business]:
 
 def _search_ddg_maps(niche: str, lat: float, lon: float,
                      radius_km: float, location: str) -> List[Business]:
-    """Primary search — structured business data from DDG Maps."""
     if not HAS_WEBSCOUT:
         return []
 
     businesses: List[Business] = []
-    queries = [niche, f"best {niche}", f"{niche} shop"]
+    queries = [
+        f"{niche} in {location}",
+        f"best {niche} near {location}",
+        f"{niche} {location}",
+    ]
 
     for query in queries:
         try:
             ddg = DuckDuckGoSearch()
             results = ddg.maps(
                 query,
-                place=location if location else None,
+                place=location or None,
                 latitude=str(lat),
                 longitude=str(lon),
                 radius=max(1, int(radius_km)),
-                max_results=40,
+                max_results=50,
             )
             for r in results:
                 name = _clean_name(r.get("title"))
@@ -196,23 +195,19 @@ def _search_ddg_maps(niche: str, lat: float, lon: float,
                     continue
 
                 hours_raw = r.get("hours")
-                opening_hours = None
-                if isinstance(hours_raw, dict):
-                    opening_hours = hours_raw
+                opening_hours = hours_raw if isinstance(hours_raw, dict) else None
 
-                # Clean address (DDG sometimes puts "· Restaurant" type data in address)
                 raw_addr = r.get("address") or ""
                 if raw_addr.startswith("·") or len(raw_addr) < 5:
                     raw_addr = ""
 
-                # Normalize source field (DDG returns full URLs like tripadvisor.com/...)
-                raw_source = r.get("source", "")
-                if "tripadvisor" in str(raw_source).lower():
+                raw_source = str(r.get("source", ""))
+                if "tripadvisor" in raw_source.lower():
                     source = "tripadvisor"
-                elif "apple" in str(raw_source).lower():
+                elif "apple" in raw_source.lower():
                     source = "apple_maps"
-                elif raw_source and len(str(raw_source)) < 30:
-                    source = str(raw_source)
+                elif raw_source and len(raw_source) < 30:
+                    source = raw_source
                 else:
                     source = "ddg_maps"
 
@@ -239,25 +234,15 @@ def _search_ddg_maps(niche: str, lat: float, lon: float,
 
 
 # ---------------------------------------------------------------------------
-# Source 2: Google Local search scraping
+# Source 2: Google Local (tbm=lcl) — ratings, reviews, category
 # ---------------------------------------------------------------------------
 
-_GOOGLE_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml",
-}
-
-
 def _search_google_local(niche: str, location: str) -> List[Business]:
-    """Scrape Google Local Pack (tbm=lcl) for ratings + phone numbers."""
     businesses: List[Business] = []
     queries = [
         f"{niche} in {location}",
         f"best {niche} {location}",
+        f"top {niche} near {location}",
     ]
 
     for query in queries:
@@ -283,22 +268,16 @@ def _search_google_local(niche: str, location: str) -> List[Business]:
 
                 text = div.get_text(separator=" | ")
 
-                # Extract phone — look for Indian phone patterns
-                phone_m = re.search(r"(\+?\d[\d\s\-]{8,}\d)", text)
-                phone = _normalize_phone(phone_m.group(1)) if phone_m else None
-
-                # Rating: "4.1" shown in Y0A0hc or yi40Hd spans
+                # Rating from dedicated span
                 rating = None
                 rating_el = div.select_one(".yi40Hd, .Y0A0hc")
                 if rating_el:
-                    rat_text = rating_el.get_text().strip()
                     try:
-                        r_val = round(float(rat_text), 1)
+                        r_val = round(float(rating_el.get_text().strip()), 1)
                         if 1.0 <= r_val <= 5.0:
                             rating = r_val
                     except ValueError:
                         pass
-                # Fallback: regex from text
                 if not rating:
                     rat_m = re.search(r"\b([1-5]\.\d)\b", text)
                     if rat_m:
@@ -307,7 +286,7 @@ def _search_google_local(niche: str, location: str) -> List[Business]:
                         except ValueError:
                             pass
 
-                # Review count: "(3K)" or "(1,234)" or "(456)"
+                # Review count: "(3K)" "(1,234)" "(456)"
                 review_count = None
                 rev_m = re.search(r"\(([\d,.]+[KkMm]?)\)", text)
                 if rev_m:
@@ -322,193 +301,206 @@ def _search_google_local(niche: str, location: str) -> List[Business]:
                     except (ValueError, IndexError):
                         pass
 
-                # Business status (open/closed)
-                is_open = None
-                if "closed" in text.lower():
-                    is_open = False
-                elif "open" in text.lower():
-                    is_open = True
+                # Phone from text
+                phone_m = re.search(r"(\+?\d[\d\s\-]{8,}\d)", text)
+                phone = _normalize_phone(phone_m.group(1)) if phone_m else None
 
-                # Try to grab address snippet — match real address indicators
+                # Address
                 addr_parts = [p.strip() for p in text.split("|")]
                 address = None
-                _addr_re = re.compile(
-                    r"\b(?:road|rd|street|st\b\.?|sector|sec|block|lane|nagar|colony|"
-                    r"market|phase|plot|floor|near|opp|chowk|marg|path|avenue|ave)\b",
-                    re.I,
-                )
                 for part in addr_parts:
                     part_clean = part.strip().lstrip("·").strip()
                     if len(part_clean) < 5:
                         continue
-                    if _addr_re.search(part_clean):
+                    if _ADDR_RE.search(part_clean):
                         address = part_clean
                         break
 
-                # Extract category from text (usually after "·", like "· Cafe")
+                # Category (e.g., "Cafe", "Beauty salon")
                 gcat = niche
                 for part in addr_parts:
-                    part_clean = part.strip().lstrip("·").strip()
-                    if not part_clean or len(part_clean) > 25 or len(part_clean) < 3:
+                    pc = part.strip().lstrip("·").strip()
+                    if not pc or len(pc) > 25 or len(pc) < 3:
                         continue
-                    low = part_clean.lower()
-                    # Skip non-category parts
-                    if part_clean[0].isdigit() or low.startswith("("):
+                    low = pc.lower()
+                    if pc[0].isdigit() or low.startswith("("):
                         continue
-                    if _addr_re.search(part_clean):
+                    if _ADDR_RE.search(pc):
                         continue
-                    if any(kw in low for kw in ["open", "close", "dine", "take", "deliver", "rated"]):
-                        continue
-                    if "₹" in part_clean or "$" in part_clean or "€" in part_clean:
+                    if any(kw in low for kw in ["open", "close", "dine", "take", "deliver", "rated", "₹", "$", "€"]):
                         continue
                     if low == name.lower():
                         continue
-                    if re.match(r"^\d", part_clean) or re.match(r"^\(", part_clean):
-                        continue
-                    # Likely a category label
-                    gcat = part_clean
+                    gcat = pc
                     break
 
                 businesses.append(Business(
-                    name=name,
-                    category=gcat,
-                    phone=phone,
-                    city=location,
-                    rating=rating,
-                    review_count=review_count,
-                    address=address,
+                    name=name, category=gcat, phone=phone, city=location,
+                    rating=rating, review_count=review_count, address=address,
                     source="google_local",
                 ))
 
-            time.sleep(0.8)
+            time.sleep(0.5)
         except Exception as e:
-            logger.warning("Google local search failed for %r: %s", query, e)
+            logger.warning("Google local failed for %r: %s", query, e)
     return businesses
 
 
 # ---------------------------------------------------------------------------
-# Source 3: Google regular search (text results → discover websites)
+# Merge — fuzzy name matching (accent-insensitive)
 # ---------------------------------------------------------------------------
 
-def _search_google_text(niche: str, location: str) -> List[Business]:
-    """Scrape regular Google results to find business websites and info."""
-    businesses: List[Business] = []
+def _merge_business(target: Business, source: Business):
+    """Copy non-empty fields from source into target where target is empty."""
+    if source.rating and not target.rating:
+        target.rating = source.rating
+    if source.review_count and not target.review_count:
+        target.review_count = source.review_count
+    if source.phone and not target.phone:
+        target.phone = source.phone
+    if source.website and not target.website:
+        target.website = source.website
+    if source.email and not target.email:
+        target.email = source.email
+    if source.address and not target.address:
+        target.address = source.address
+    if source.latitude and not target.latitude:
+        target.latitude = source.latitude
+    if source.longitude and not target.longitude:
+        target.longitude = source.longitude
+    if source.facebook and not target.facebook:
+        target.facebook = source.facebook
+    if source.instagram and not target.instagram:
+        target.instagram = source.instagram
+    if source.twitter and not target.twitter:
+        target.twitter = source.twitter
+    if source.opening_hours and not target.opening_hours:
+        target.opening_hours = source.opening_hours
+    if source.image and not target.image:
+        target.image = source.image
+    if source.description and not target.description:
+        target.description = source.description
+    if source.category and (not target.category or target.category == target.city):
+        target.category = source.category
 
-    queries = [
-        f"{niche} in {location} contact number",
-        f"top {niche} {location}",
-    ]
 
-    for query in queries:
-        try:
-            resp = requests.get(
-                "https://www.google.com/search",
-                params={"q": query, "hl": "en", "num": "20"},
-                headers=_GOOGLE_HEADERS,
-                timeout=12,
-            )
-            if resp.status_code != 200:
+def _merge_lists(*lists: List[Business]) -> List[Business]:
+    """Merge multiple lists using fuzzy name matching (accent-insensitive)."""
+    by_key: Dict[str, Business] = {}
+
+    for biz_list in lists:
+        for b in biz_list:
+            if not b.is_valid():
                 continue
-
-            soup = BeautifulSoup(resp.text, "html.parser")
-
-            # Extract from search result snippets
-            for g in soup.select("div.g, div.tF2Cxc"):
-                link_el = g.select_one("a[href]")
-                title_el = g.select_one("h3")
-                snippet_el = g.select_one(".VwiC3b, .IsZvec, span.st")
-
-                if not link_el or not title_el:
-                    continue
-
-                href = link_el.get("href", "")
-                if not href.startswith("http"):
-                    continue
-                # Skip aggregator/directory sites
-                skip_domains = ["justdial", "sulekha", "yelp", "tripadvisor", "zomato",
-                                "swiggy", "indiamart", "tradeindia", "yellow", "facebook",
-                                "instagram", "twitter", "linkedin", "youtube", "wikipedia",
-                                "google.com", "govt"]
-                domain = urlparse(href).netloc.lower()
-                if any(s in domain for s in skip_domains):
-                    continue
-
-                title = _clean_name(title_el.get_text())
-                if not title:
-                    continue
-
-                snippet = snippet_el.get_text() if snippet_el else ""
-
-                # Extract phone from snippet
-                phone_m = re.search(r"(\+?\d[\d\s\-]{8,}\d)", snippet)
-                phone = _normalize_phone(phone_m.group(1)) if phone_m else None
-
-                # Extract email from snippet
-                email_m = re.search(r"[\w.+-]+@[\w-]+\.[\w.-]+", snippet)
-                email = email_m.group(0) if email_m else None
-
-                businesses.append(Business(
-                    name=title,
-                    category=niche,
-                    phone=phone,
-                    email=email,
-                    website=_normalize_url(href),
-                    city=location,
-                    source="google_text",
-                ))
-
-            time.sleep(0.8)
-        except Exception as e:
-            logger.warning("Google text search failed for %r: %s", query, e)
-    return businesses
-
-
-# ---------------------------------------------------------------------------
-# Merge logic
-# ---------------------------------------------------------------------------
-
-def _merge_into(primary: List[Business], *secondaries: List[Business]) -> List[Business]:
-    """Merge secondary lists into primary, enriching matches by name."""
-    by_name: Dict[str, Business] = {}
-    for b in primary:
-        key = (b.name or "").lower().strip()
-        if key:
-            by_name[key] = b
-
-    for secondary in secondaries:
-        for b in secondary:
-            key = (b.name or "").lower().strip()
+            key = _norm_key(b.name)
             if not key:
                 continue
-            if key in by_name:
-                existing = by_name[key]
-                if b.rating and not existing.rating:
-                    existing.rating = b.rating
-                if b.review_count and not existing.review_count:
-                    existing.review_count = b.review_count
-                if b.phone and not existing.phone:
-                    existing.phone = b.phone
-                if b.website and not existing.website:
-                    existing.website = b.website
-                if b.email and not existing.email:
-                    existing.email = b.email
-                if b.address and not existing.address:
-                    existing.address = b.address
-                if b.facebook and not existing.facebook:
-                    existing.facebook = b.facebook
-                if b.instagram and not existing.instagram:
-                    existing.instagram = b.instagram
-                if b.twitter and not existing.twitter:
-                    existing.twitter = b.twitter
-            else:
-                by_name[key] = b
-                primary.append(b)
 
-    return primary
+            if key in by_key:
+                _merge_business(by_key[key], b)
+            else:
+                # Also check if a substring match exists (e.g., "cafe well being" in "cafe well being chandigarh")
+                matched = False
+                for existing_key in list(by_key.keys()):
+                    if key in existing_key or existing_key in key:
+                        if len(key) >= 6 and len(existing_key) >= 6:  # avoid tiny false matches
+                            _merge_business(by_key[existing_key], b)
+                            matched = True
+                            break
+                if not matched:
+                    by_key[key] = b
+
+    return list(by_key.values())
 
 
 # ---------------------------------------------------------------------------
-# Website enrichment (crawl business websites for social links + emails)
+# Enrichment: find website/phone for businesses that are missing them
+# ---------------------------------------------------------------------------
+
+def _enrich_single(business: Business, location: str) -> Business:
+    """Search Google for a single business to find its website and phone."""
+    if business.website and business.phone:
+        return business  # already has both
+
+    query = f"{business.name} {location} contact"
+    try:
+        resp = requests.get(
+            "https://www.google.com/search",
+            params={"q": query, "hl": "en", "num": "5"},
+            headers=_GOOGLE_HEADERS,
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return business
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        page_text = soup.get_text()
+
+        # Extract phone from page
+        if not business.phone:
+            phone_m = re.search(r"(\+91[\s\-]?\d[\d\s\-]{8,}\d)", page_text)
+            if not phone_m:
+                phone_m = re.search(r"\b(0\d{2,4}[\s\-]\d{6,8})\b", page_text)
+            if not phone_m:
+                phone_m = re.search(r"\b(\d{10})\b", page_text)
+            if phone_m:
+                business.phone = _normalize_phone(phone_m.group(1))
+
+        # Extract website from search results (skip directories)
+        if not business.website:
+            skip_domains = {
+                "justdial", "sulekha", "yelp", "tripadvisor", "zomato", "swiggy",
+                "indiamart", "tradeindia", "yellowpages", "facebook", "instagram",
+                "twitter", "linkedin", "youtube", "wikipedia", "google", "bing",
+                "quora", "reddit", "pinterest", "mapquest",
+            }
+            for a_tag in soup.select("a[href]"):
+                href = a_tag.get("href", "")
+                if not href.startswith("http"):
+                    continue
+                domain = urlparse(href).netloc.lower().replace("www.", "")
+                if any(s in domain for s in skip_domains):
+                    continue
+                if domain and "." in domain:
+                    business.website = _normalize_url(href)
+                    break
+
+        # Extract email
+        if not business.email:
+            email_m = re.search(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", page_text)
+            if email_m:
+                email = email_m.group(0).lower()
+                if not any(s in email for s in ["noreply", "example", "test@", "wix", "squarespace"]):
+                    business.email = email
+
+    except Exception as e:
+        logger.debug("Enrich failed for %s: %s", business.name, e)
+
+    return business
+
+
+def _enrich_missing(businesses: List[Business], location: str, max_workers: int = 5) -> List[Business]:
+    """For businesses missing website or phone, search Google to find them."""
+    to_enrich = [b for b in businesses if not b.website or not b.phone]
+    if not to_enrich:
+        return businesses
+
+    # Limit to avoid rate-limiting (max 30 enrichment searches)
+    to_enrich = to_enrich[:30]
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(_enrich_single, b, location): b for b in to_enrich}
+        for future in as_completed(futures, timeout=60):
+            try:
+                future.result()
+            except Exception:
+                pass
+
+    return businesses
+
+
+# ---------------------------------------------------------------------------
+# Website crawling — extract social links + emails
 # ---------------------------------------------------------------------------
 
 _SOCIAL_PATTERNS = {
@@ -520,32 +512,25 @@ _SOCIAL_PATTERNS = {
 }
 
 _EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
-
-# Emails to ignore (generic/spam)
 _IGNORE_EMAILS = {"noreply", "no-reply", "support@wix", "support@squarespace",
                   "support@wordpress", "example", "test@", "user@"}
 
 
 def _crawl_website(business: Business) -> Business:
-    """Visit a business website and extract social links + emails."""
     if not business.website:
         return business
     try:
         resp = requests.get(
             business.website,
-            headers={
-                "User-Agent": _GOOGLE_HEADERS["User-Agent"],
-                "Accept": "text/html",
-            },
+            headers={"User-Agent": _GOOGLE_HEADERS["User-Agent"], "Accept": "text/html"},
             timeout=8,
             allow_redirects=True,
         )
         if resp.status_code != 200:
             return business
 
-        html = resp.text[:200_000]  # cap at 200KB
+        html = resp.text[:200_000]
 
-        # Extract social links
         for key, pattern in _SOCIAL_PATTERNS.items():
             if getattr(business, key):
                 continue
@@ -553,32 +538,37 @@ def _crawl_website(business: Business) -> Business:
             if m:
                 setattr(business, key, m.group(0))
 
-        # Extract emails
         if not business.email:
-            emails = _EMAIL_RE.findall(html)
-            for email in emails:
+            for email in _EMAIL_RE.findall(html):
                 low = email.lower()
-                if any(skip in low for skip in _IGNORE_EMAILS):
+                if any(s in low for s in _IGNORE_EMAILS):
                     continue
                 if low.endswith((".png", ".jpg", ".gif", ".svg", ".css", ".js")):
                     continue
                 business.email = email
                 break
 
+        # Try to get phone from website if still missing
+        if not business.phone:
+            phone_m = re.search(r"(\+91[\s\-]?\d[\d\s\-]{7,}\d)", html)
+            if not phone_m:
+                phone_m = re.search(r'tel:(\+?\d[\d\-]{8,}\d)', html)
+            if phone_m:
+                business.phone = _normalize_phone(phone_m.group(1))
+
     except Exception:
         pass
     return business
 
 
-def _enrich_websites(businesses: List[Business], max_workers: int = 8) -> List[Business]:
-    """Crawl websites in parallel for social/email enrichment."""
+def _crawl_websites(businesses: List[Business], max_workers: int = 10) -> List[Business]:
     to_crawl = [b for b in businesses if b.website]
     if not to_crawl:
         return businesses
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         futures = {pool.submit(_crawl_website, b): b for b in to_crawl}
-        for future in as_completed(futures, timeout=30):
+        for future in as_completed(futures, timeout=40):
             try:
                 future.result()
             except Exception:
@@ -588,15 +578,29 @@ def _enrich_websites(businesses: List[Business], max_workers: int = 8) -> List[B
 
 
 # ---------------------------------------------------------------------------
+# Deduplication (final pass)
+# ---------------------------------------------------------------------------
+
+def _deduplicate(businesses: List[Business]) -> List[Business]:
+    seen: Set[str] = set()
+    unique: List[Business] = []
+    for b in businesses:
+        if not b.is_valid():
+            continue
+        key = _norm_key(b.name)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(b)
+    return unique
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
 def get_businesses(lat: float, lon: float, radius_km: float,
                    niche: str, location: str = "") -> List[Dict]:
-    """
-    Search for businesses using multiple free sources, merge, enrich, and
-    return a list of lead dicts sorted by opportunity (hottest first).
-    """
     lat, lon, radius_km = float(lat), float(lon), float(radius_km)
     if radius_km <= 0 or radius_km > 50:
         raise ValueError("Radius must be between 0.1 and 50 km")
@@ -606,50 +610,44 @@ def get_businesses(lat: float, lon: float, radius_km: float,
     # --- Phase 1: Discovery (parallel) ---
     ddg_results: List[Business] = []
     google_local: List[Business] = []
-    google_text: List[Business] = []
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         f_ddg = pool.submit(_search_ddg_maps, niche_clean, lat, lon, radius_km, location)
         f_glocal = pool.submit(_search_google_local, niche_clean, location) if location else None
-        f_gtext = pool.submit(_search_google_text, niche_clean, location) if location else None
 
         try:
-            ddg_results = f_ddg.result(timeout=45)
+            ddg_results = f_ddg.result(timeout=50)
         except Exception as e:
             logger.error("DDG search failed: %s", e)
 
         if f_glocal:
             try:
-                google_local = f_glocal.result(timeout=20)
+                google_local = f_glocal.result(timeout=25)
             except Exception as e:
                 logger.error("Google local failed: %s", e)
 
-        if f_gtext:
-            try:
-                google_text = f_gtext.result(timeout=20)
-            except Exception as e:
-                logger.error("Google text failed: %s", e)
+    logger.info("Discovery: DDG=%d  GLocal=%d", len(ddg_results), len(google_local))
 
-    logger.info("Sources: DDG=%d  GLocal=%d  GText=%d",
-                len(ddg_results), len(google_local), len(google_text))
-
-    # --- Phase 2: Merge ---
-    all_biz = _merge_into(ddg_results, google_local, google_text)
+    # --- Phase 2: Merge (fuzzy name matching) ---
+    merged = _merge_lists(ddg_results, google_local)
 
     # --- Phase 3: Deduplicate ---
-    unique = _deduplicate(all_biz)
+    unique = _deduplicate(merged)
 
-    # --- Phase 4: Website enrichment (parallel crawl) ---
-    unique = _enrich_websites(unique, max_workers=10)
+    # --- Phase 4: Enrich missing website/phone via Google search ---
+    unique = _enrich_missing(unique, location, max_workers=5)
 
-    # --- Phase 5: Sort (hottest leads first) ---
+    # --- Phase 5: Crawl websites for social + email + phone ---
+    unique = _crawl_websites(unique, max_workers=10)
+
+    # --- Phase 6: Sort (hottest leads first) ---
     def lead_sort_key(b: Business):
         gaps = 0
-        if not b.website:   gaps += 3
+        if not b.website:  gaps += 3
         if not b.facebook and not b.instagram: gaps += 2
-        if not b.phone:     gaps += 1
-        if not b.email:     gaps += 1
-        return (-gaps, (b.name or "").lower())
+        if not b.phone:    gaps += 1
+        if not b.email:    gaps += 1
+        return (-gaps, -(b.rating or 0), (b.name or "").lower())
 
     unique.sort(key=lead_sort_key)
 
