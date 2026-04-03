@@ -1,7 +1,9 @@
+import logging
+import traceback
 from pathlib import Path
 
 from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
@@ -9,6 +11,9 @@ from typing import Optional
 from app.services.geocode import get_coordinates
 from app.services.search_engine import get_businesses
 from app.services import gemini
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Creative Monk Lead Engine")
 
@@ -22,6 +27,33 @@ def health_check():
     return {"status": "ok"}
 
 
+@app.get("/debug")
+def debug_check():
+    """Check server state for debugging."""
+    import sys
+    checks = {"python": sys.version, "status": "ok"}
+    try:
+        from app.services.search_engine import HAS_WEBSCOUT
+        checks["webscout"] = HAS_WEBSCOUT
+    except Exception as e:
+        checks["webscout_error"] = str(e)
+    try:
+        from webscout import DuckDuckGoSearch
+        checks["ddg_import"] = True
+    except Exception as e:
+        checks["ddg_import_error"] = str(e)
+    try:
+        import beautifulsoup4
+        checks["bs4"] = True
+    except ImportError:
+        try:
+            from bs4 import BeautifulSoup
+            checks["bs4"] = True
+        except Exception as e:
+            checks["bs4_error"] = str(e)
+    return checks
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     return HTMLResponse(_INDEX_HTML)
@@ -33,17 +65,25 @@ def find_businesses(
     location: str = Query(...),
     radius_km: float = Query(...)
 ):
-    coords = get_coordinates(location)
-    if not coords:
-        return {"count": 0, "businesses": []}
+    try:
+        coords = get_coordinates(location)
+        if not coords:
+            return {"count": 0, "businesses": []}
 
-    lat, lon = coords
-    businesses = get_businesses(lat, lon, radius_km, niche, location=location)
+        lat, lon = coords
+        businesses = get_businesses(lat, lon, radius_km, niche, location=location)
 
-    return {
-        "count": len(businesses),
-        "businesses": businesses
-    }
+        return {
+            "count": len(businesses),
+            "businesses": businesses
+        }
+    except Exception as e:
+        tb = traceback.format_exc()
+        logger.error("Search failed: %s\n%s", e, tb)
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e), "traceback": tb}
+        )
 
 
 class AnalyzeLeadRequest(BaseModel):
