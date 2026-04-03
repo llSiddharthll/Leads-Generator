@@ -58,6 +58,14 @@ class Business:
     source: Optional[str] = None
     image: Optional[str] = None
     description: Optional[str] = None
+    # Website health fields (populated during crawl)
+    has_ssl: Optional[bool] = None
+    has_mobile_viewport: Optional[bool] = None
+    tech_stack: Optional[str] = None          # "wordpress", "shopify", "wix", "custom"
+    has_seo_title: Optional[bool] = None
+    has_seo_description: Optional[bool] = None
+    page_load_ok: Optional[bool] = None       # loaded under 5s
+    website_age_signal: Optional[str] = None  # "outdated" or "modern"
 
     def is_valid(self) -> bool:
         if not self.name:
@@ -94,6 +102,19 @@ class Business:
         if self.source:       d["source"] = self.source
         if self.image:        d["image"] = self.image
         if self.description:  d["description"] = self.description
+
+        # Website health audit
+        site_health: Dict = {}
+        if self.has_ssl is not None:            site_health["ssl"] = self.has_ssl
+        if self.has_mobile_viewport is not None: site_health["mobile"] = self.has_mobile_viewport
+        if self.tech_stack:                     site_health["tech"] = self.tech_stack
+        if self.has_seo_title is not None:      site_health["seo_title"] = self.has_seo_title
+        if self.has_seo_description is not None: site_health["seo_desc"] = self.has_seo_description
+        if self.page_load_ok is not None:       site_health["fast"] = self.page_load_ok
+        if self.website_age_signal:             site_health["age"] = self.website_age_signal
+        if site_health:
+            d["site_health"] = site_health
+
         return d
 
 
@@ -517,20 +538,32 @@ _IGNORE_EMAILS = {"noreply", "no-reply", "support@wix", "support@squarespace",
 
 
 def _crawl_website(business: Business) -> Business:
+    """Full website audit: social links, email, phone, SSL, mobile, tech, SEO."""
     if not business.website:
         return business
     try:
+        start = time.time()
         resp = requests.get(
             business.website,
             headers={"User-Agent": _GOOGLE_HEADERS["User-Agent"], "Accept": "text/html"},
             timeout=8,
             allow_redirects=True,
         )
+        elapsed = time.time() - start
+
+        # --- SSL check ---
+        business.has_ssl = resp.url.startswith("https://")
+
+        # --- Page load speed ---
+        business.page_load_ok = elapsed < 5.0
+
         if resp.status_code != 200:
             return business
 
         html = resp.text[:200_000]
+        html_lower = html.lower()
 
+        # --- Social links ---
         for key, pattern in _SOCIAL_PATTERNS.items():
             if getattr(business, key):
                 continue
@@ -538,6 +571,7 @@ def _crawl_website(business: Business) -> Business:
             if m:
                 setattr(business, key, m.group(0))
 
+        # --- Email ---
         if not business.email:
             for email in _EMAIL_RE.findall(html):
                 low = email.lower()
@@ -548,7 +582,7 @@ def _crawl_website(business: Business) -> Business:
                 business.email = email
                 break
 
-        # Try to get phone from website if still missing
+        # --- Phone from website ---
         if not business.phone:
             phone_m = re.search(r"(\+91[\s\-]?\d[\d\s\-]{7,}\d)", html)
             if not phone_m:
@@ -556,6 +590,47 @@ def _crawl_website(business: Business) -> Business:
             if phone_m:
                 business.phone = _normalize_phone(phone_m.group(1))
 
+        # --- Mobile viewport ---
+        business.has_mobile_viewport = 'name="viewport"' in html_lower or "name='viewport'" in html_lower
+
+        # --- Tech stack detection ---
+        if "wp-content" in html_lower or "wordpress" in html_lower:
+            business.tech_stack = "wordpress"
+        elif "shopify" in html_lower or "cdn.shopify" in html_lower:
+            business.tech_stack = "shopify"
+        elif "wix.com" in html_lower or "wixsite" in html_lower:
+            business.tech_stack = "wix"
+        elif "squarespace" in html_lower:
+            business.tech_stack = "squarespace"
+        elif "godaddy" in html_lower:
+            business.tech_stack = "godaddy"
+        elif "weebly" in html_lower:
+            business.tech_stack = "weebly"
+        else:
+            business.tech_stack = "custom"
+
+        # --- SEO basics ---
+        soup = BeautifulSoup(html[:50_000], "html.parser")
+        title_tag = soup.find("title")
+        business.has_seo_title = bool(title_tag and title_tag.get_text().strip())
+
+        meta_desc = soup.find("meta", attrs={"name": "description"})
+        business.has_seo_description = bool(meta_desc and meta_desc.get("content", "").strip())
+
+        # --- Website age signal ---
+        # Check for outdated patterns
+        outdated_signals = [
+            "table" in html_lower[:5000] and "cellpadding" in html_lower[:5000],
+            "<marquee" in html_lower,
+            "<blink" in html_lower,
+            "<frameset" in html_lower,
+            "<center>" in html_lower[:3000],
+            "transitional.dtd" in html_lower[:500],
+        ]
+        business.website_age_signal = "outdated" if any(outdated_signals) else "modern"
+
+    except requests.exceptions.SSLError:
+        business.has_ssl = False
     except Exception:
         pass
     return business
